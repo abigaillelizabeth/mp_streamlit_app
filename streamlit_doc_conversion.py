@@ -281,7 +281,6 @@ def mainCig(uploaded_file):
 #     return file
 
 
-
 # TESTING (Outside Streamlit)
 # if __name__ == "__main__":
 #     # PAYROLL TEST
@@ -295,7 +294,6 @@ def mainCig(uploaded_file):
 #     # ARENA FTG TEST
 #     uploaded_ftg = 'insert_name'  # Replace with the path to your test file
 #     mainFTG(uploaded_ftg)
-
 
 
 # STREAMLIT SETUP
@@ -334,7 +332,7 @@ elif file_type == 'Payroll':
             st.download_button(
                 label="Download Payroll File",
                 data=output_file,
-                file_name="processed_payroll_file.txt",
+                file_name="GLTRN2000.txt",
                 mime="text/csv"
             )
         else:
@@ -364,7 +362,7 @@ elif file_type == 'Cigna':
             st.download_button(
                 label="Download Cigna File",
                 data=output_file,
-                file_name="processed_cigna_file.txt",
+                file_name="GLTRN2000.txt",
                 mime="text/csv"
             ) 
         else:

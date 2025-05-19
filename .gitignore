@@ -1,0 +1,9 @@
+# Ignoring Specific Files
+.DS_Store
+GroupPremiumStatementRpt_03.2025.xlsx
+GroupPremiumStatementRpt_04.2025.xlsx
+PR Journal Entry_03.25.2025-1.xlsx
+
+# Ignoring all .xlsx example files
+*.xlsx
+
