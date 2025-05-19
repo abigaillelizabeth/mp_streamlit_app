@@ -309,7 +309,7 @@ if file_type == 'Arena: First-Time Givers':
     uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx")
     #journal_date = st.text_input("Journal Date:", value="010125")
     #accounting_period = st.text_input("Accounting Period:", value="01")
-    description_1 = st.text_input("Description for Journal Entry:", value="Payroll Entry xx.xx.xx")
+    description = st.text_input("Description of Report", value="First-time Givers mm.yy")
 
 elif file_type == 'Payroll':
     st.header("Payroll File Upload")
