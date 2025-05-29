@@ -270,6 +270,7 @@ def mainCig(uploaded_file):
     return cig_final
 
 # ARENA METHODS  
+# Function to reformat the input data
 def process_arena_data(input_file):
     # Read in the PR data
     raw_arena = pd.read_excel(input_file, sheet_name=0, header=None)
@@ -328,34 +329,50 @@ def process_arena_data(input_file):
 
     arena_data = sorted_arena
     return arena_data
+# Function to generate the output data
+# def create_arena_file(processed_arena_data):
+#      # Save the processed data to a new .xlsx file
+#     output_file_path = 'Arena Sort Testing.xlsx'
+#     arena_file = processed_arena_data.to_excel(output_file_path, index=False)
 
-def create_arena_file(processed_arena_data):
-     # Save the processed data to a new .xlsx file
-    output_file_path = 'Arena Sort Testing.xlsx'
-    arena_file = processed_arena_data.to_excel(output_file_path, index=False)
+#     print(f"File successfully saved to {output_file_path}")
+#     return arena_file
 
-    print(f"File successfully saved to {output_file_path}")
+def create_arena_file(processed_arena_data, is_streamlit = True):
+    if is_streamlit:
+        # If running in Streamlit, keep the file in memory (no save to disk)
+        arena_file = io.BytesIO()  # In-memory file for Streamlit (binary mode)
+        processed_arena_data.to_excel(arena_file, index=False, engine='openpyxl')  # Use openpyxl for Excel output
+        arena_file.seek(0)  # Go to the beginning of the in-memory file
+    else:
+        # If NOT running in Streamlit, save the file to disk
+        output_file_path = "Sorted_Mailing_List.xlsx"
+        processed_arena_data.to_excel(output_file_path, index=False, engine='openpyxl')  # Save to disk
+        #processed_arena_data.to_excel(output_file_path, index=False)
+        print(f"File successfully saved to {output_file_path}")
+        arena_file = None  # Return None or any placeholder since file is saved on disk
+
     return arena_file
 
-
+# Arena Main
 def mainArena(uploaded_file):
     processed_data = process_arena_data(uploaded_file)
     print("data has been processed.")
 
     # Test the file creation function
-    arena_final = create_arena_file(processed_data)
-
-    # Print or save the output as needed
-    print("File created successfully. Ready for download.")
+    arena_final = create_arena_file(processed_data, is_streamlit = False)
     #print(arena_final)
-    
-    #output_content = arena_final.getvalue()
-    #print(output_content)  # This will print the file content to the terminal
+
+    if arena_final != None:
+        print("File created successfully. Ready for download.")
+    else:
+        print("File has been saved to disk.")
+
     return arena_final
 
 
 # TESTING (Outside Streamlit)
-if __name__ == "__main__":
+# if __name__ == "__main__":
 #     # PAYROLL TEST
 #     uploaded_PR = 'PR Journal Entry_03.25.2025-1.xlsx'  # Replace with the path to your test file
 #     mainPR(uploaded_PR)
@@ -364,100 +381,101 @@ if __name__ == "__main__":
 #     uploaded_Cig = 'GroupPremiumStatementRpt_03.2025.xlsx'  # Replace with the path to your test file
 #     mainCig(uploaded_Cig)
 
-    # ARENA FTG TEST
-    uploaded_arena = 'Arena Masterfile Tester.xlsx'  # Replace with the path to your test file
-    mainArena(uploaded_arena)
+#     # ARENA  TEST
+#     uploaded_arena = 'Arena Masterfile Tester.xlsx'  # Replace with the path to your test file
+#     mainArena(uploaded_arena)
 
 
-# # STREAMLIT SETUP
-# st.title("File Import & Conversion Application")
-# # Step 1: Select the file type (Payroll or Cigna)
-# file_type = st.radio("Select the file type you're uploading:", ['Arena: First-Time Givers', 'Payroll', 'Cigna', ])
+# STREAMLIT SETUP
+st.title("File Import & Conversion Application")
+# Step 1: Select the file type (Payroll or Cigna)
+file_type = st.radio("Select the file type you're uploading:", ['Arena: First-Time Givers', 'Payroll', 'Cigna', ])
 
-# if file_type == 'Arena: First-Time Givers':
-#     st.header("Arena File Upload")
-#     # Input Information
-#     uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx")
-#     #journal_date = st.text_input("Journal Date:", value="010125")
-#     #accounting_period = st.text_input("Accounting Period:", value="01")
-#     description = st.text_input("Description of Report", value="First-time Givers mm.yy")
+if file_type == 'Arena: First-Time Givers':
+    st.header("Arena File Upload")
+    # Input Information
+    uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx")
+    #journal_date = st.text_input("Journal Date:", value="010125")
+    #accounting_period = st.text_input("Accounting Period:", value="01")
+    #description = st.text_input("Description of Report", value="First-time Givers mm.yy")
 
-#      # Run the script when the button is pressed
-#     if st.button("Run Arena Script"):
-#         if uploaded_file is not None:
-#             # Process the payroll data
-#             processed_data = process_arena_data(uploaded_file)
+     # Run the script when the button is pressed
+    if st.button("Run Arena Script"):
+        if uploaded_file is not None:
+            # Process the payroll data
+            processed_data = process_arena_data(uploaded_file)
             
-#             # Create the output file
-#             output_file = create_pr_file(processed_data)
+            # Create the output file
+            output_file = create_arena_file(processed_data)
 
-#             st.success("Payroll file processed and ready for download!")
+            st.success("Payroll file processed and ready for download!")
 
-#             # Provide download button for the payroll output
-#             st.download_button(
-#                 label="Download Arena File",
-#                 data=output_file,
-#                 file_name="Arena Sort Testing.xlsx",
-#                 #mime="text/csv"
-#             )
-#         else:
-#             st.error("Please upload an arena file.")
+            # Provide download button for the payroll output
+            st.download_button(
+                label="Download Arena File",
+                data=output_file,
+                file_name="Sorted_Mailing_List.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                #mime="text/csv"
+            )
+        else:
+            st.error("Please upload an arena file.")
 
-# elif file_type == 'Payroll':
-#     st.header("Payroll File Upload")
-#     # Input Information
-#     uploaded_file = st.file_uploader("Choose an Excel file for Payroll", type="xlsx")
-#     journal_date = st.text_input("Journal Date:", value="010125")
-#     accounting_period = st.text_input("Accounting Period:", value="01")
-#     description_1 = st.text_input("Description for Journal Entry:", value="Payroll Entry xx.xx.xx")
+elif file_type == 'Payroll':
+    st.header("Payroll File Upload")
+    # Input Information
+    uploaded_file = st.file_uploader("Choose an Excel file for Payroll", type="xlsx")
+    journal_date = st.text_input("Journal Date:", value="010125")
+    accounting_period = st.text_input("Accounting Period:", value="01")
+    description_1 = st.text_input("Description for Journal Entry:", value="Payroll Entry xx.xx.xx")
     
-#     # Run the script when the button is pressed
-#     if st.button("Run Payroll Script"):
-#         if uploaded_file is not None:
-#             # Process the payroll data
-#             processed_data = process_pr_data(uploaded_file)
+    # Run the script when the button is pressed
+    if st.button("Run Payroll Script"):
+        if uploaded_file is not None:
+            # Process the payroll data
+            processed_data = process_pr_data(uploaded_file)
             
-#             # Create the output file
-#             output_file = create_pr_file(processed_data, journal_date, accounting_period, description_1)
+            # Create the output file
+            output_file = create_pr_file(processed_data, journal_date, accounting_period, description_1)
 
-#             st.success("Payroll file processed and ready for download!")
+            st.success("Payroll file processed and ready for download!")
 
-#             # Provide download button for the payroll output
-#             st.download_button(
-#                 label="Download Payroll File",
-#                 data=output_file,
-#                 file_name="GLTRN2000.txt",
-#                 mime="text/csv"
-#             )
-#         else:
-#             st.error("Please upload a payroll file.")
+            # Provide download button for the payroll output
+            st.download_button(
+                label="Download Payroll File",
+                data=output_file,
+                file_name="GLTRN2000.txt",
+                mime="text/csv"
+            )
+        else:
+            st.error("Please upload a payroll file.")
 
-# elif file_type == 'Cigna':
-#     st.header("Cigna File Upload")
-#     # Input Information
-#     uploaded_file = st.file_uploader("Choose an Excel file for Cigna", type="xlsx")
-#     journal_date = st.text_input("Journal Date:", value="010125")
-#     accounting_period = st.text_input("Accounting Period:", value="01")
-#     description_1 = st.text_input("Description for Journal Entry:", value="Cigna Entry xx.xx.xx")
-#     credit_acct = "1130"
+elif file_type == 'Cigna':
+    st.header("Cigna File Upload")
+    # Input Information
+    uploaded_file = st.file_uploader("Choose an Excel file for Cigna", type="xlsx")
+    journal_date = st.text_input("Journal Date:", value="010125")
+    accounting_period = st.text_input("Accounting Period:", value="01")
+    description_1 = st.text_input("Description for Journal Entry:", value="Cigna Entry xx.xx.xx")
+    credit_acct = "1130"
     
-#     # Run the script when the button is pressed
-#     if st.button("Run Cigna Script"):
-#         if uploaded_file is not None:
-#             # Process the Cigna data
-#             processed_data = process_cig_data(uploaded_file)
+    # Run the script when the button is pressed
+    if st.button("Run Cigna Script"):
+        if uploaded_file is not None:
+            # Process the Cigna data
+            processed_data = process_cig_data(uploaded_file)
             
-#             # Create the output file
-#             output_file = create_cig_file(processed_data, journal_date, accounting_period, description_1, credit_acct)
+            # Create the output file
+            output_file = create_cig_file(processed_data, journal_date, accounting_period, description_1, credit_acct)
 
-#             st.success("Cigna file processed and ready for download!")
+            st.success("Cigna file processed and ready for download!")
 
-#             # Provide download button for the Cigna output
-#             st.download_button(
-#                 label="Download Cigna File",
-#                 data=output_file,
-#                 file_name="GLTRN2000.txt",
-#                 mime="text/csv"
-#             ) 
-#         else:
-#             st.error("Please upload a Cigna file.")
+            # Provide download button for the Cigna output
+            st.download_button(
+                label="Download Cigna File",
+                data=output_file,
+                file_name="GLTRN2000.txt",
+                mime="text/csv"
+            ) 
+        else:
+            st.error("Please upload a Cigna file.")
