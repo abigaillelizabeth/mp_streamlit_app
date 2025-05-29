@@ -5,7 +5,6 @@ import numpy as np
 import io
 import csv
 
-
 # PAYROLL METHODS
 # Function to reformat the input data
 def process_pr_data(input_file):
@@ -270,19 +269,93 @@ def mainCig(uploaded_file):
 
     return cig_final
 
-# FIRST-TIME GIVERS METHODS  
-# def process_ftg_data(input_file):
-#     return file
+# ARENA METHODS  
+def process_arena_data(input_file):
+    # Read in the PR data
+    raw_arena = pd.read_excel(input_file, sheet_name=0, header=None)
+    #print(raw_arena.head())  # Print the first few rows to understand its structure
+    print(raw_arena.shape)   # Check the number of rows and columns
 
-# def create_ftg_file():
-#     return file
+    # remove extra columns
+    raw_arena = raw_arena.iloc[:, list(range(0, 14)) + [15]]
+    #print(raw_arena.head())
 
-# def mainFTG(uploaded_file):
-#     return file
+    # Group by Family Id (column 0) and Person ID (column 1)
+    raw_arena.iloc[1:, 14] = raw_arena.iloc[1:, 14].astype(float)
+    grouped_arena = raw_arena.groupby([0, 1], as_index=False).agg({
+        2: 'first',    # Keep the first value for 'Last Name' (column 2)
+        3: 'first',    # Keep the first value for 'First Name' (column 3)
+        4: 'first',    # Keep the first value for 'Nick Name' (column 4)
+        5: 'first',    # Keep the first value for 'Spouse Title' (column 5)
+        6: 'first',    # Keep the first value for 'Spouse Last Name' (column 6)
+        7: 'first',    # Keep the first value for 'Spouse First Name' (column 7)
+        8: 'first',    # Keep the first value for 'Spouse Nick Name' (column 8)
+        9: 'first',    # Keep the first value for 'Address' (column 9)
+        10: 'first',   # Keep the first value for 'City' (column 10)
+        11: 'first',   # Keep the first value for 'State' (column 11)
+        12: 'first',   # Keep the first value for 'Zip' (column 12)
+        13: 'first',   # Keep the first value for 'Email' (column 13)
+        15: 'sum'      # Sum the 'Contribution Fund Amount' (column 15)
+    })
+
+    # Rename the columns for clarity
+    grouped_arena.columns = ['Family Id', 'Person ID', 'Last Name', 'First Name', 'Nick Name', 
+                             'Spouse Title', 'Spouse Last Name', 'Spouse First Name', 'Spouse Nick Name', 
+                             'Address', 'City', 'State', 'Zip', 'Email', 'Total Contribution Fund Amount']
+
+    # print("printing grouped arena")
+    # print(grouped_arena.shape)
+    # print(grouped_arena.head(20))
+
+    # Add a blank column "Title" at index 3
+    grouped_arena.insert(3, 'Title', '')  # Insert the new "Title" column at index 3 and leave it blank
+
+    # Sort by Last name
+    sorted_arena = grouped_arena.sort_values(by=['Last Name'])
+
+    # TO_DO: if first name (index 4) == Nick Name (index 5) == blank, separate those columns to be at the very bottom of the output
+    # Step 1: Filter rows where 'First Name' and 'Nick Name' are both blank
+    blank_names = sorted_arena[(sorted_arena['First Name'].isna()) & (sorted_arena['Nick Name'].isna())]
+
+    # Step 2: Filter out those rows from the main DataFrame
+    sorted_arena = sorted_arena[~((sorted_arena['First Name'].isna()) & (sorted_arena['Nick Name'].isna()))]
+
+    # Step 3: Append the rows with blank names at the bottom of the DataFrame
+    sorted_arena = pd.concat([sorted_arena, blank_names])
+
+    # Remove rows that are identical to the column name
+    sorted_arena = sorted_arena[~(sorted_arena == sorted_arena.columns).all(axis=1)]
+
+    arena_data = sorted_arena
+    return arena_data
+
+def create_arena_file(processed_arena_data):
+     # Save the processed data to a new .xlsx file
+    output_file_path = 'Arena Sort Testing.xlsx'
+    arena_file = processed_arena_data.to_excel(output_file_path, index=False)
+
+    print(f"File successfully saved to {output_file_path}")
+    return arena_file
+
+
+def mainArena(uploaded_file):
+    processed_data = process_arena_data(uploaded_file)
+    print("data has been processed.")
+
+    # Test the file creation function
+    arena_final = create_arena_file(processed_data)
+
+    # Print or save the output as needed
+    print("File created successfully. Ready for download.")
+    #print(arena_final)
+    
+    #output_content = arena_final.getvalue()
+    #print(output_content)  # This will print the file content to the terminal
+    return arena_final
 
 
 # TESTING (Outside Streamlit)
-# if __name__ == "__main__":
+if __name__ == "__main__":
 #     # PAYROLL TEST
 #     uploaded_PR = 'PR Journal Entry_03.25.2025-1.xlsx'  # Replace with the path to your test file
 #     mainPR(uploaded_PR)
@@ -291,79 +364,100 @@ def mainCig(uploaded_file):
 #     uploaded_Cig = 'GroupPremiumStatementRpt_03.2025.xlsx'  # Replace with the path to your test file
 #     mainCig(uploaded_Cig)
 
-#     # ARENA FTG TEST
-#     uploaded_ftg = 'insert_name'  # Replace with the path to your test file
-#     mainFTG(uploaded_ftg)
+    # ARENA FTG TEST
+    uploaded_arena = 'Arena Masterfile Tester.xlsx'  # Replace with the path to your test file
+    mainArena(uploaded_arena)
 
 
-# STREAMLIT SETUP
-st.title("File Import & Conversion Application")
-# Step 1: Select the file type (Payroll or Cigna)
-file_type = st.radio("Select the file type you're uploading:", ['Arena: First-Time Givers', 'Payroll', 'Cigna', ])
+# # STREAMLIT SETUP
+# st.title("File Import & Conversion Application")
+# # Step 1: Select the file type (Payroll or Cigna)
+# file_type = st.radio("Select the file type you're uploading:", ['Arena: First-Time Givers', 'Payroll', 'Cigna', ])
 
-if file_type == 'Arena: First-Time Givers':
-    st.header("Arena File Upload")
-    # Input Information
-    uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx")
-    #journal_date = st.text_input("Journal Date:", value="010125")
-    #accounting_period = st.text_input("Accounting Period:", value="01")
-    description = st.text_input("Description of Report", value="First-time Givers mm.yy")
+# if file_type == 'Arena: First-Time Givers':
+#     st.header("Arena File Upload")
+#     # Input Information
+#     uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx")
+#     #journal_date = st.text_input("Journal Date:", value="010125")
+#     #accounting_period = st.text_input("Accounting Period:", value="01")
+#     description = st.text_input("Description of Report", value="First-time Givers mm.yy")
 
-elif file_type == 'Payroll':
-    st.header("Payroll File Upload")
-    # Input Information
-    uploaded_file = st.file_uploader("Choose an Excel file for Payroll", type="xlsx")
-    journal_date = st.text_input("Journal Date:", value="010125")
-    accounting_period = st.text_input("Accounting Period:", value="01")
-    description_1 = st.text_input("Description for Journal Entry:", value="Payroll Entry xx.xx.xx")
-    
-    # Run the script when the button is pressed
-    if st.button("Run Payroll Script"):
-        if uploaded_file is not None:
-            # Process the payroll data
-            processed_data = process_pr_data(uploaded_file)
+#      # Run the script when the button is pressed
+#     if st.button("Run Arena Script"):
+#         if uploaded_file is not None:
+#             # Process the payroll data
+#             processed_data = process_arena_data(uploaded_file)
             
-            # Create the output file
-            output_file = create_pr_file(processed_data, journal_date, accounting_period, description_1)
+#             # Create the output file
+#             output_file = create_pr_file(processed_data)
 
-            st.success("Payroll file processed and ready for download!")
+#             st.success("Payroll file processed and ready for download!")
 
-            # Provide download button for the payroll output
-            st.download_button(
-                label="Download Payroll File",
-                data=output_file,
-                file_name="GLTRN2000.txt",
-                mime="text/csv"
-            )
-        else:
-            st.error("Please upload a payroll file.")
+#             # Provide download button for the payroll output
+#             st.download_button(
+#                 label="Download Arena File",
+#                 data=output_file,
+#                 file_name="Arena Sort Testing.xlsx",
+#                 #mime="text/csv"
+#             )
+#         else:
+#             st.error("Please upload an arena file.")
 
-elif file_type == 'Cigna':
-    st.header("Cigna File Upload")
-    # Input Information
-    uploaded_file = st.file_uploader("Choose an Excel file for Cigna", type="xlsx")
-    journal_date = st.text_input("Journal Date:", value="010125")
-    accounting_period = st.text_input("Accounting Period:", value="01")
-    description_1 = st.text_input("Description for Journal Entry:", value="Cigna Entry xx.xx.xx")
-    credit_acct = "1130"
+# elif file_type == 'Payroll':
+#     st.header("Payroll File Upload")
+#     # Input Information
+#     uploaded_file = st.file_uploader("Choose an Excel file for Payroll", type="xlsx")
+#     journal_date = st.text_input("Journal Date:", value="010125")
+#     accounting_period = st.text_input("Accounting Period:", value="01")
+#     description_1 = st.text_input("Description for Journal Entry:", value="Payroll Entry xx.xx.xx")
     
-    # Run the script when the button is pressed
-    if st.button("Run Cigna Script"):
-        if uploaded_file is not None:
-            # Process the Cigna data
-            processed_data = process_cig_data(uploaded_file)
+#     # Run the script when the button is pressed
+#     if st.button("Run Payroll Script"):
+#         if uploaded_file is not None:
+#             # Process the payroll data
+#             processed_data = process_pr_data(uploaded_file)
             
-            # Create the output file
-            output_file = create_cig_file(processed_data, journal_date, accounting_period, description_1, credit_acct)
+#             # Create the output file
+#             output_file = create_pr_file(processed_data, journal_date, accounting_period, description_1)
 
-            st.success("Cigna file processed and ready for download!")
+#             st.success("Payroll file processed and ready for download!")
 
-            # Provide download button for the Cigna output
-            st.download_button(
-                label="Download Cigna File",
-                data=output_file,
-                file_name="GLTRN2000.txt",
-                mime="text/csv"
-            ) 
-        else:
-            st.error("Please upload a Cigna file.")
+#             # Provide download button for the payroll output
+#             st.download_button(
+#                 label="Download Payroll File",
+#                 data=output_file,
+#                 file_name="GLTRN2000.txt",
+#                 mime="text/csv"
+#             )
+#         else:
+#             st.error("Please upload a payroll file.")
+
+# elif file_type == 'Cigna':
+#     st.header("Cigna File Upload")
+#     # Input Information
+#     uploaded_file = st.file_uploader("Choose an Excel file for Cigna", type="xlsx")
+#     journal_date = st.text_input("Journal Date:", value="010125")
+#     accounting_period = st.text_input("Accounting Period:", value="01")
+#     description_1 = st.text_input("Description for Journal Entry:", value="Cigna Entry xx.xx.xx")
+#     credit_acct = "1130"
+    
+#     # Run the script when the button is pressed
+#     if st.button("Run Cigna Script"):
+#         if uploaded_file is not None:
+#             # Process the Cigna data
+#             processed_data = process_cig_data(uploaded_file)
+            
+#             # Create the output file
+#             output_file = create_cig_file(processed_data, journal_date, accounting_period, description_1, credit_acct)
+
+#             st.success("Cigna file processed and ready for download!")
+
+#             # Provide download button for the Cigna output
+#             st.download_button(
+#                 label="Download Cigna File",
+#                 data=output_file,
+#                 file_name="GLTRN2000.txt",
+#                 mime="text/csv"
+#             ) 
+#         else:
+#             st.error("Please upload a Cigna file.")
