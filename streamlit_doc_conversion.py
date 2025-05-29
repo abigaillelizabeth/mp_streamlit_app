@@ -11,7 +11,7 @@ def process_pr_data(input_file):
     # Read in the PR data
     raw_PR = pd.read_excel(input_file, sheet_name=1, header=None)
     #print(raw_PR.head())  # Print the first few rows to understand its structure
-    print(raw_PR.shape)   # Check the number of rows and columns
+    #print(raw_PR.shape)   # Check the number of rows and columns
 
     # Find the index where "DEPT" appears in column 7 (index 6)
     dept_row_index = raw_PR[raw_PR[6] == "DEPT"].index[0]
@@ -19,7 +19,7 @@ def process_pr_data(input_file):
     # Subset rows from the 'DEPT' row onward, and select columns 7 to 9 (indices 5-8)
     PR_1 = raw_PR.iloc[dept_row_index:, 6:10]
     #print(PR_1.head)  # Print the first few rows to understand its structure
-    print(PR_1.shape)   # Check the number of rows and columns
+    #print(PR_1.shape)   # Check the number of rows and columns
 
     # Set column names
     PR_1.columns = PR_1.iloc[0]
@@ -40,7 +40,7 @@ def process_pr_data(input_file):
     PR_4.loc[:, 'CREDITS'] = pd.to_numeric(PR_4['CREDITS'], errors='coerce')
 
     # Print out column data types (for debugging)
-    print(PR_4.dtypes)
+    #print(PR_4.dtypes)
 
     # Step 7: Check the file format
     required_columns = ['DEPT', 'ACCT', 'DEBITS', 'CREDITS']
@@ -105,15 +105,13 @@ def mainPR(uploaded_file):
     journal_date = "010125"
     accounting_period = "01"
     description_1 = "Payroll Entry"
-    print("variables have been set.")
     pr_final = create_pr_file(processed_data, journal_date, accounting_period, description_1)
 
-    # Print or save the output as needed
+    # Print & save the output as needed
     print("File created successfully. Ready for download.")
-    print(pr_final)
-
-    output_content = pr_final.getvalue()
-    print(output_content)  # This will print the file content to the terminal
+    #print(pr_final)
+    #output_content = pr_final.getvalue()
+    #print(output_content)  # This will print the file content to the terminal
 
     return pr_final
 
@@ -122,9 +120,9 @@ def mainPR(uploaded_file):
 def process_cig_data(input_file):
     # Read in the Cigna data
     raw_Cigna = pd.read_excel(input_file, sheet_name=3, header=None)
-    print("Raw Cigna Data:")
-    print(raw_Cigna.head())
-    print(raw_Cigna.shape)
+    #print("Raw Cigna Data:")
+    #print(raw_Cigna.head())
+    #print(raw_Cigna.shape)
 
     # Set start and end rows (based on the "Employee ID" text in the first column)
     start_row = raw_Cigna[raw_Cigna[0] == "Employee ID"].index[0]
@@ -132,23 +130,23 @@ def process_cig_data(input_file):
 
     # Crop the data between start and end rows
     cropped_cig = raw_Cigna.iloc[start_row:end_row + 1, :]
-    print("Cropped Cigna Data:")
-    print(cropped_cig.head())
-    print(cropped_cig.shape)
+    #print("Cropped Cigna Data:")
+    #print(cropped_cig.head())
+    #print(cropped_cig.shape)
 
     # Set column names (first row in cropped data)
     cropped_cig.columns = cropped_cig.iloc[0]
     cropped_cig = cropped_cig.iloc[1:].reset_index(drop=True)  # Remove the first row
-    print("Named Cropped Data:")
-    print(cropped_cig.head())
+    #print("Named Cropped Data:")
+    #print(cropped_cig.head())
 
     data_csv = cropped_cig
 
     # Delete unnecessary columns (adjust column names based on the actual data)
     data_csv = data_csv.drop(data_csv.columns[[2, 12]], axis=1)
 
-    print("Modified Data:")
-    print(data_csv.head())
+    #print("Modified Data:")
+    #print(data_csv.head())
 
     # Normalize Employee Name columns (to avoid issues with spaces/case differences)
     data_csv['Employee Name'] = data_csv['Employee Name'].str.strip().str.lower()
@@ -171,8 +169,8 @@ def process_cig_data(input_file):
     # Reorder columns (add 'Dept.Acct' at the correct place and make sure it's clean)
     data_csv = data_csv[['Employee Name', 'Dept.Acct'] + [col for col in data_csv.columns if col not in ['Employee Name', 'Dept.Acct']]]
 
-    print("Departmental Data:")
-    print(data_csv.head())
+    #print("Departmental Data:")
+    #print(data_csv.head())
 
     cig_data = data_csv
     return cig_data  
@@ -197,9 +195,8 @@ def create_cig_file(processed_cig_data, journal_date, accounting_period, descrip
 
     # Step 4: Append the totals row to the summary_data DataFrame
     summary_data = pd.concat([summary_data, totals_row_df], ignore_index=True)
-
-    print("Summary Data:")
-    print(summary_data)
+    #print("Summary Data:")
+    #print(summary_data)
 
     # Creating debit lines
     debit_lines = summary_data[summary_data['Dept.Acct'] != "TOTAL"].copy()
@@ -232,10 +229,8 @@ def create_cig_file(processed_cig_data, journal_date, accounting_period, descrip
     # Combine debit and credit lines
     gltrn_df = pd.concat([debit_lines, credit_line], ignore_index=True)
     gltrn_df = gltrn_df.filter(regex="^Field")  # Keep only the "Field" columns
-
-    print("GLTRN Data:")
-    print(gltrn_df)
-
+    #print("GLTRN Data:")
+    #print(gltrn_df)
 
     # Save the output to a .txt file
     if st:
@@ -256,16 +251,13 @@ def mainCig(uploaded_file):
     accounting_period = "01"
     description_1 = "Cigna Entry"
     credit_acct = "1130"
-    print("variables have been set.")
     cig_final = create_cig_file(processed_data, journal_date, accounting_period, description_1, credit_acct)
 
-    # Print or save the output as needed
+    # Print & save the output as needed
     print("File created successfully. Ready for download.")
-    print(cig_final)
-    
-    output_content = cig_final.getvalue()
-    print(output_content)  # This will print the file content to the terminal
-
+    #print(cig_final)
+    #output_content = cig_final.getvalue()
+    #print(output_content)  # This will print the file content to the terminal
 
     return cig_final
 
@@ -275,7 +267,7 @@ def process_arena_data(input_file):
     # Read in the PR data
     raw_arena = pd.read_excel(input_file, sheet_name=0, header=None)
     #print(raw_arena.head())  # Print the first few rows to understand its structure
-    print(raw_arena.shape)   # Check the number of rows and columns
+    #print(raw_arena.shape)   # Check the number of rows and columns
 
     # remove extra columns
     raw_arena = raw_arena.iloc[:, list(range(0, 14)) + [15]]
@@ -330,14 +322,6 @@ def process_arena_data(input_file):
     arena_data = sorted_arena
     return arena_data
 # Function to generate the output data
-# def create_arena_file(processed_arena_data):
-#      # Save the processed data to a new .xlsx file
-#     output_file_path = 'Arena Sort Testing.xlsx'
-#     arena_file = processed_arena_data.to_excel(output_file_path, index=False)
-
-#     print(f"File successfully saved to {output_file_path}")
-#     return arena_file
-
 def create_arena_file(processed_arena_data, is_streamlit = True):
     if is_streamlit:
         # If running in Streamlit, keep the file in memory (no save to disk)
@@ -353,7 +337,6 @@ def create_arena_file(processed_arena_data, is_streamlit = True):
         arena_file = None  # Return None or any placeholder since file is saved on disk
 
     return arena_file
-
 # Arena Main
 def mainArena(uploaded_file):
     processed_data = process_arena_data(uploaded_file)
@@ -387,11 +370,11 @@ def mainArena(uploaded_file):
 
 
 # STREAMLIT SETUP
-st.title("File Import & Conversion Application")
+st.title("File Import & Conversion App")
 # Step 1: Select the file type (Payroll or Cigna)
-file_type = st.radio("Select the file type you're uploading:", ['Arena: First-Time Givers', 'Payroll', 'Cigna', ])
+file_type = st.radio("Select the file type you want to convert:", ['Arena Mailing List', 'Payroll Workbook', 'Cigna Download', ])
 
-if file_type == 'Arena: First-Time Givers':
+if file_type == 'Arena Mailing List':
     st.header("Arena File Upload")
     # Input Information
     uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx")
@@ -400,7 +383,7 @@ if file_type == 'Arena: First-Time Givers':
     #description = st.text_input("Description of Report", value="First-time Givers mm.yy")
 
      # Run the script when the button is pressed
-    if st.button("Run Arena Script"):
+    if st.button("Create Donor Summary"):
         if uploaded_file is not None:
             # Process the payroll data
             processed_data = process_arena_data(uploaded_file)
@@ -408,7 +391,7 @@ if file_type == 'Arena: First-Time Givers':
             # Create the output file
             output_file = create_arena_file(processed_data)
 
-            st.success("Payroll file processed and ready for download!")
+            st.success("Arena file processed and ready for download!")
 
             # Provide download button for the payroll output
             st.download_button(
@@ -421,7 +404,7 @@ if file_type == 'Arena: First-Time Givers':
         else:
             st.error("Please upload an arena file.")
 
-elif file_type == 'Payroll':
+elif file_type == 'Payroll Workbook':
     st.header("Payroll File Upload")
     # Input Information
     uploaded_file = st.file_uploader("Choose an Excel file for Payroll", type="xlsx")
@@ -430,7 +413,7 @@ elif file_type == 'Payroll':
     description_1 = st.text_input("Description for Journal Entry:", value="Payroll Entry xx.xx.xx")
     
     # Run the script when the button is pressed
-    if st.button("Run Payroll Script"):
+    if st.button("Generate Payroll JE File"):
         if uploaded_file is not None:
             # Process the payroll data
             processed_data = process_pr_data(uploaded_file)
@@ -450,7 +433,7 @@ elif file_type == 'Payroll':
         else:
             st.error("Please upload a payroll file.")
 
-elif file_type == 'Cigna':
+elif file_type == 'Cigna Download':
     st.header("Cigna File Upload")
     # Input Information
     uploaded_file = st.file_uploader("Choose an Excel file for Cigna", type="xlsx")
@@ -460,7 +443,7 @@ elif file_type == 'Cigna':
     credit_acct = "1130"
     
     # Run the script when the button is pressed
-    if st.button("Run Cigna Script"):
+    if st.button("Generate Cigna JE File"):
         if uploaded_file is not None:
             # Process the Cigna data
             processed_data = process_cig_data(uploaded_file)
