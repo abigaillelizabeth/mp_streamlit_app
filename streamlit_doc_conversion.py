@@ -1,5 +1,6 @@
 # IMPORTS STATEMENTS
 import streamlit as st
+import toml
 import pandas as pd
 import numpy as np
 import io
@@ -114,6 +115,7 @@ def mainPR(uploaded_file):
     #print(output_content)  # This will print the file content to the terminal
 
     return pr_final
+
 
 # CIGNA METHODS 
 # Function to reformat the input data
@@ -261,6 +263,7 @@ def mainCig(uploaded_file):
 
     return cig_final
 
+
 # ARENA METHODS  
 # Function to reformat the input data
 def process_arena_data(input_file):
@@ -354,111 +357,167 @@ def mainArena(uploaded_file):
     return arena_final
 
 
-# TESTING (Outside Streamlit)
-# if __name__ == "__main__":
-#     # PAYROLL TEST
-#     uploaded_PR = 'PR Journal Entry_03.25.2025-1.xlsx'  # Replace with the path to your test file
-#     mainPR(uploaded_PR)
+# STREAMLIT METHODS
+# Function to authenticate user
+def authenticate(username, password):
+    # # Your logic for authentication (e.g., check against hardcoded credentials or a database)
+    # if username == st.secrets["general"]["username"] and password == st.secrets["general"]["password"]:
+    #     return True
+    # return False
 
-#     # CIGNA TEST
-#     uploaded_Cig = 'GroupPremiumStatementRpt_03.2025.xlsx'  # Replace with the path to your test file
-#     mainCig(uploaded_Cig)
+    # Load the secrets from the secrets.toml file
+    secrets = toml.load(".streamlit/secrets.toml")
 
-#     # ARENA  TEST
-#     uploaded_arena = 'Arena Masterfile Tester.xlsx'  # Replace with the path to your test file
-#     mainArena(uploaded_arena)
-
-
-# STREAMLIT SETUP
-st.title("File Import & Conversion App")
-# Step 1: Select the file type (Payroll or Cigna)
-file_type = st.radio("Select the file type you want to convert:", ['Arena Mailing List', 'Payroll Workbook', 'Cigna Download', ])
-
-if file_type == 'Arena Mailing List':
-    st.header("Arena File Upload")
-    # Input Information
-    uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx")
-    #journal_date = st.text_input("Journal Date:", value="010125")
-    #accounting_period = st.text_input("Accounting Period:", value="01")
-    #description = st.text_input("Description of Report", value="First-time Givers mm.yy")
-
-     # Run the script when the button is pressed
-    if st.button("Create Donor Summary"):
-        if uploaded_file is not None:
-            # Process the payroll data
-            processed_data = process_arena_data(uploaded_file)
-            
-            # Create the output file
-            output_file = create_arena_file(processed_data)
-
-            st.success("Arena file processed and ready for download!")
-
-            # Provide download button for the payroll output
-            st.download_button(
-                label="Download Arena File",
-                data=output_file,
-                file_name="Sorted_Mailing_List.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                #mime="text/csv"
-            )
-        else:
-            st.error("Please upload an arena file.")
-
-elif file_type == 'Payroll Workbook':
-    st.header("Payroll File Upload")
-    # Input Information
-    uploaded_file = st.file_uploader("Choose an Excel file for Payroll", type="xlsx")
-    journal_date = st.text_input("Journal Date:", value="010125")
-    accounting_period = st.text_input("Accounting Period:", value="01")
-    description_1 = st.text_input("Description for Journal Entry:", value="Payroll Entry xx.xx.xx")
+    # Loop through the credentials to match the username and password
+    for user in secrets.get("credentials", []):
+        if user["username"] == username and user["password"] == password:
+            return True  # Successful authentication
+    return False  # Failed authentication
     
-    # Run the script when the button is pressed
-    if st.button("Generate Payroll JE File"):
-        if uploaded_file is not None:
-            # Process the payroll data
-            processed_data = process_pr_data(uploaded_file)
-            
-            # Create the output file
-            output_file = create_pr_file(processed_data, journal_date, accounting_period, description_1)
+# Function to print Streamlit methods
+def run_app():
+    # When the user is logged in, show the rest of the app
+    #st.title("Welcome to the Streamlit App!")
+    st.write("You are successfully logged in.")
+    st.title("File Import & Conversion App")
+    # Step 1: Select the file type (Payroll or Cigna)
+    file_type = st.radio("Select the file type you want to convert:", ['Arena Mailing List', 'Payroll Workbook', 'Cigna Download', ])
 
-            st.success("Payroll file processed and ready for download!")
+    if file_type == 'Arena Mailing List':
+        st.header("Arena File Upload")
+        # Input Information
+        uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx")
 
-            # Provide download button for the payroll output
-            st.download_button(
-                label="Download Payroll File",
-                data=output_file,
-                file_name="GLTRN2000.txt",
-                mime="text/csv"
-            )
-        else:
-            st.error("Please upload a payroll file.")
+        # Run the script when the button is pressed
+        if st.button("Create Donor Summary"):
+            if uploaded_file is not None:
+                # Process the payroll data
+                processed_data = process_arena_data(uploaded_file)
+                
+                # Create the output file
+                output_file = create_arena_file(processed_data)
 
-elif file_type == 'Cigna Download':
-    st.header("Cigna File Upload")
-    # Input Information
-    uploaded_file = st.file_uploader("Choose an Excel file for Cigna", type="xlsx")
-    journal_date = st.text_input("Journal Date:", value="010125")
-    accounting_period = st.text_input("Accounting Period:", value="01")
-    description_1 = st.text_input("Description for Journal Entry:", value="Cigna Entry xx.xx.xx")
-    credit_acct = "1130"
+                st.success("Arena file processed and ready for download!")
+
+                # Provide download button for the payroll output
+                st.download_button(
+                    label="Download Arena File",
+                    data=output_file,
+                    file_name="Sorted_Mailing_List.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    #mime="text/csv"
+                )
+            else:
+                st.error("Please upload an arena file.")
+
+    elif file_type == 'Payroll Workbook':
+        st.header("Payroll File Upload")
+        # Input Information
+        uploaded_file = st.file_uploader("Choose an Excel file for Payroll", type="xlsx")
+        journal_date = st.text_input("Journal Date:", value="010125")
+        accounting_period = st.text_input("Accounting Period:", value="01")
+        description_1 = st.text_input("Description for Journal Entry:", value="Payroll Entry xx.xx.xx")
+        
+        # Run the script when the button is pressed
+        if st.button("Generate Payroll JE File"):
+            if uploaded_file is not None:
+                # Process the payroll data
+                processed_data = process_pr_data(uploaded_file)
+                
+                # Create the output file
+                output_file = create_pr_file(processed_data, journal_date, accounting_period, description_1)
+
+                st.success("Payroll file processed and ready for download!")
+
+                # Provide download button for the payroll output
+                st.download_button(
+                    label="Download Payroll File",
+                    data=output_file,
+                    file_name="GLTRN2000.txt",
+                    mime="text/csv"
+                )
+            else:
+                st.error("Please upload a payroll file.")
+
+    elif file_type == 'Cigna Download':
+        st.header("Cigna File Upload")
+        # Input Information
+        uploaded_file = st.file_uploader("Choose an Excel file for Cigna", type="xlsx")
+        journal_date = st.text_input("Journal Date:", value="010125")
+        accounting_period = st.text_input("Accounting Period:", value="01")
+        description_1 = st.text_input("Description for Journal Entry:", value="Cigna Entry xx.xx.xx")
+        credit_acct = "1130"
+        
+        # Run the script when the button is pressed
+        if st.button("Generate Cigna JE File"):
+            if uploaded_file is not None:
+                # Process the Cigna data
+                processed_data = process_cig_data(uploaded_file)
+                
+                # Create the output file
+                output_file = create_cig_file(processed_data, journal_date, accounting_period, description_1, credit_acct)
+
+                st.success("Cigna file processed and ready for download!")
+
+                # Provide download button for the Cigna output
+                st.download_button(
+                    label="Download Cigna File",
+                    data=output_file,
+                    file_name="GLTRN2000.txt",
+                    mime="text/csv"
+                ) 
+            else:
+                st.error("Please upload a Cigna file.")
+
+# Function to set streamlit logic
+def app():
+    # Set up session state to track login status
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+
+    # Show login form if not logged in
+    if not st.session_state.logged_in:
+        st.title("MP File Conversion Login Page")
+        st.write("Please enter your username and password.")
+        
+        # Create input fields for username and password
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+
+        # Login button to check credentials
+        login_button = st.button("Login")
+
+        if login_button:
+        # Check if the credentials are valid
+            if authenticate(username, password):
+                # Successful login
+                st.session_state.logged_in = True  # Store login status
+                st.success("Login successful!")
+                st.rerun()  # This is to refresh the page and hide the login form
+            else:
+                # Invalid credentials
+                st.error("Invalid credentials. Please try again.")
     
-    # Run the script when the button is pressed
-    if st.button("Generate Cigna JE File"):
-        if uploaded_file is not None:
-            # Process the Cigna data
-            processed_data = process_cig_data(uploaded_file)
-            
-            # Create the output file
-            output_file = create_cig_file(processed_data, journal_date, accounting_period, description_1, credit_acct)
+    else:
+        # Add a logout button
+        if st.button("Logout"):
+            st.session_state.logged_in = False  # Reset login status
+            st.rerun()  # Refresh the app after logging out
+        
+        run_app()
+        
 
-            st.success("Cigna file processed and ready for download!")
-
-            # Provide download button for the Cigna output
-            st.download_button(
-                label="Download Cigna File",
-                data=output_file,
-                file_name="GLTRN2000.txt",
-                mime="text/csv"
-            ) 
-        else:
-            st.error("Please upload a Cigna file.")
+# TESTING
+if __name__ == "__main__":
+    # STREAMLIT TEST 
+    app()
+    # # TERMINAL LOCAL TESTS
+    # # PAYROLL
+    # uploaded_PR = 'PR Journal Entry_03.25.2025-1.xlsx'  # Replace with the path to your test file
+    # mainPR(uploaded_PR)
+    # # CIGNA
+    # uploaded_Cig = 'GroupPremiumStatementRpt_03.2025.xlsx'  # Replace with the path to your test file
+    # mainCig(uploaded_Cig)
+    # # ARENA 
+    # uploaded_arena = 'Arena Masterfile Tester.xlsx'  # Replace with the path to your test file
+    # mainArena(uploaded_arena)
