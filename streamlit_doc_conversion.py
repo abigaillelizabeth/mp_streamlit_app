@@ -366,10 +366,12 @@ def authenticate(username, password):
     # return False
 
     # Load the secrets from the secrets.toml file
-    secrets = toml.load(".streamlit/secrets.toml")
+    #secrets = toml.load(".streamlit/secrets.toml")
+    #secrets = st.secrets
+    #st.write(secrets)
 
     # Loop through the credentials to match the username and password
-    for user in secrets.get("credentials", []):
+    for user in st.secrets["credentials"]:  # Access the list of users
         if user["username"] == username and user["password"] == password:
             return True  # Successful authentication
     return False  # Failed authentication
@@ -503,7 +505,6 @@ def app():
         if st.button("Logout"):
             st.session_state.logged_in = False  # Reset login status
             st.rerun()  # Refresh the app after logging out
-        
         run_app()
         
 
