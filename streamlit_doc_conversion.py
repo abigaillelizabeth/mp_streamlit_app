@@ -115,6 +115,35 @@ def mainPR(uploaded_file):
     #print(output_content)  # This will print the file content to the terminal
 
     return pr_final
+# Function to run payroll methods  
+def runPayroll():
+    st.header("Payroll File Upload")
+    # Input Information
+    uploaded_file = st.file_uploader("Choose an Excel file for Payroll", type="xlsx")
+    journal_date = st.text_input("Journal Date:", value="010125")
+    accounting_period = st.text_input("Accounting Period:", value="01")
+    description_1 = st.text_input("Description for Journal Entry:", value="Payroll Entry xx.xx.xx")
+    
+    # Run the script when the button is pressed
+    if st.button("Generate Payroll JE File"):
+        if uploaded_file is not None:
+            # Process the payroll data
+            processed_data = process_pr_data(uploaded_file)
+            
+            # Create the output file
+            output_file = create_pr_file(processed_data, journal_date, accounting_period, description_1)
+
+            st.success("Payroll file processed and ready for download!")
+
+            # Provide download button for the payroll output
+            st.download_button(
+                label="Download Payroll File",
+                data=output_file,
+                file_name="GLTRN2000.txt",
+                mime="text/csv"
+            )
+        else:
+            st.error("Please upload a payroll file.")
 
 
 # CIGNA METHODS 
@@ -262,6 +291,36 @@ def mainCig(uploaded_file):
     #print(output_content)  # This will print the file content to the terminal
 
     return cig_final
+# Function to run cigna methods  
+def runCigna():
+    st.header("Cigna File Upload")
+    # Input Information
+    uploaded_file = st.file_uploader("Choose an Excel file for Cigna", type="xlsx")
+    journal_date = st.text_input("Journal Date:", value="010125")
+    accounting_period = st.text_input("Accounting Period:", value="01")
+    description_1 = st.text_input("Description for Journal Entry:", value="Cigna Entry xx.xx.xx")
+    credit_acct = "1130"
+    
+    # Run the script when the button is pressed
+    if st.button("Generate Cigna JE File"):
+        if uploaded_file is not None:
+            # Process the Cigna data
+            processed_data = process_cig_data(uploaded_file)
+            
+            # Create the output file
+            output_file = create_cig_file(processed_data, journal_date, accounting_period, description_1, credit_acct)
+
+            st.success("Cigna file processed and ready for download!")
+
+            # Provide download button for the Cigna output
+            st.download_button(
+                label="Download Cigna File",
+                data=output_file,
+                file_name="GLTRN2000.txt",
+                mime="text/csv"
+            ) 
+        else:
+            st.error("Please upload a Cigna file.")
 
 
 # ARENA METHODS  
@@ -355,6 +414,33 @@ def mainArena(uploaded_file):
         print("File has been saved to disk.")
 
     return arena_final
+# Function to run arena methods  
+def runArena():
+    st.header("Arena File Upload")
+    # Input Information
+    uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx")
+
+    # Run the script when the button is pressed
+    if st.button("Create Donor Summary"):
+        if uploaded_file is not None:
+            # Process the payroll data
+            processed_data = process_arena_data(uploaded_file)
+            
+            # Create the output file
+            output_file = create_arena_file(processed_data)
+
+            st.success("Arena file processed and ready for download!")
+
+            # Provide download button for the payroll output
+            st.download_button(
+                label="Download Arena File",
+                data=output_file,
+                file_name="Sorted_Mailing_List.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                #mime="text/csv"
+            )
+        else:
+            st.error("Please upload an arena file.")
 
 
 # CONTRIBUTION METHODS  
@@ -367,7 +453,6 @@ def process_contrib_arena(input_file):
     print(raw_contrib_arena.shape)   # Check the number of rows and columns
 
     return raw_contrib_arena
-
 # Function to read in the EasyTithe data
 def process_contrib_ezt(input_file):
     # Read in the EZT data
@@ -377,7 +462,6 @@ def process_contrib_ezt(input_file):
     print(raw_contrib_ezt.shape)   # Check the number of rows and columns
 
     return raw_contrib_ezt
-
 # Function to Match contribution data imports
 def combine_contributions(arena_data, ezt_data):
     # Assuming the two dataframes have some common columns (e.g., "Family Id" or "Person ID")
@@ -389,161 +473,82 @@ def combine_contributions(arena_data, ezt_data):
     # You can add any logic to clean the data or adjust the structure if needed
 
     return combined_data
+# Function to run contribution methods  
+def runContributions():
+    st.header("Contribution Reports Processing")
+
+    # Upload Arena Batch Files (Allow multiple files)
+    st.write("Arena Batch Files Upload")
+    uploaded_arena_files = st.file_uploader("Choose Arena batch files", type="xlsx", accept_multiple_files=True)
+    # Process the uploaded Arena files
+    if st.button("Import Arena Batches"):
+        if uploaded_arena_files:
+            arena_data_list = []
+            for uploaded_arena_file in uploaded_arena_files:
+                # Process each uploaded Arena file and append the result to a list
+                arena_data = process_contrib_arena(uploaded_arena_file)
+                arena_data_list.append(arena_data)
+
+            # Combine all Arena data into one DataFrame
+            combined_arena_data = pd.concat(arena_data_list, ignore_index=True)
+            st.session_state.arena_data = combined_arena_data  # Store the combined Arena data in session state
+            st.success("Arena batches processed and combined successfully")
+        else:
+            st.error("Please upload at least one Arena batch.")
+
+    # Upload the EZT batch file
+    st.write("EasyTithe Batch File Upload")
+    uploaded_ezt_file = st.file_uploader("Choose an EasyTithe batch file", type="xlsx")
+    # Run the script when the button is clicked for EZT file
+    if st.button("Import EasyTithe Batch"):
+        if uploaded_ezt_file is not None:
+            # Process the EZT batch data
+            ezt_data = process_contrib_ezt(uploaded_ezt_file)
+            st.session_state.ezt_data = ezt_data  # Save the EZT data in session state
+            st.success("EasyTithe batch processed")
+        else:
+            st.error("Please upload an EasyTithe batch.")
+
+    # Combine the two files if both are uploaded
+    if 'arena_data' in st.session_state and 'ezt_data' in st.session_state:
+        if st.button("Combine Contribution Files"):
+            combined_data = combine_contributions(st.session_state.arena_data, st.session_state.ezt_data)
+            # Provide download button for the combined file
+            st.download_button(
+                label="Download Combined Contributions",
+                data=combined_data.to_csv(index=False).encode(),  # Converting to CSV format
+                file_name="combined_contribution_report.csv",
+                mime="text/csv"
+            )
+        
+    print("to be implemented")
 
 
 # STREAMLIT METHODS
 # Function to authenticate user
 def authenticate(username, password):
-    # Debug: print the secrets to see if it is loaded correctly
-    # print(st.secrets)  # This will print the entire secrets object to the logs
-    # if "credentials" not in st.secrets:
-    #     st.error("Credentials key is missing from secrets!")
-    #     return False
-
     # Loop through the credentials to match the username and password
     for user in st.secrets["credentials"]["user"]:
         if user["username"] == username and user["password"] == password:
             return True  # Successful authentication
     return False  # Failed authentication
-    
-# Function to print Streamlit methods
-def run_app():
+
+# Function to call and implement the file methods
+def call_methods():
     # When the user is logged in, show the rest of the app
     st.write("You are successfully logged in.")
     st.title("File Import & Conversion App")
     file_type = st.radio("Select the file type you want to convert:", 
                          ['Arena Mailing List', 'Payroll Workbook', 'Cigna Download', 'Contribution Reports'])
-
+    # Run the correct set of methods based on user-selected file type
     if file_type == 'Arena Mailing List':
-        st.header("Arena File Upload")
-        # Input Information
-        uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx")
-
-        # Run the script when the button is pressed
-        if st.button("Create Donor Summary"):
-            if uploaded_file is not None:
-                # Process the payroll data
-                processed_data = process_arena_data(uploaded_file)
-                
-                # Create the output file
-                output_file = create_arena_file(processed_data)
-
-                st.success("Arena file processed and ready for download!")
-
-                # Provide download button for the payroll output
-                st.download_button(
-                    label="Download Arena File",
-                    data=output_file,
-                    file_name="Sorted_Mailing_List.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    #mime="text/csv"
-                )
-            else:
-                st.error("Please upload an arena file.")
-
+        runArena()
     elif file_type == 'Payroll Workbook':
-        st.header("Payroll File Upload")
-        # Input Information
-        uploaded_file = st.file_uploader("Choose an Excel file for Payroll", type="xlsx")
-        journal_date = st.text_input("Journal Date:", value="010125")
-        accounting_period = st.text_input("Accounting Period:", value="01")
-        description_1 = st.text_input("Description for Journal Entry:", value="Payroll Entry xx.xx.xx")
-        
-        # Run the script when the button is pressed
-        if st.button("Generate Payroll JE File"):
-            if uploaded_file is not None:
-                # Process the payroll data
-                processed_data = process_pr_data(uploaded_file)
-                
-                # Create the output file
-                output_file = create_pr_file(processed_data, journal_date, accounting_period, description_1)
-
-                st.success("Payroll file processed and ready for download!")
-
-                # Provide download button for the payroll output
-                st.download_button(
-                    label="Download Payroll File",
-                    data=output_file,
-                    file_name="GLTRN2000.txt",
-                    mime="text/csv"
-                )
-            else:
-                st.error("Please upload a payroll file.")
-
+        runPayroll()
     elif file_type == 'Cigna Download':
-        st.header("Cigna File Upload")
-        # Input Information
-        uploaded_file = st.file_uploader("Choose an Excel file for Cigna", type="xlsx")
-        journal_date = st.text_input("Journal Date:", value="010125")
-        accounting_period = st.text_input("Accounting Period:", value="01")
-        description_1 = st.text_input("Description for Journal Entry:", value="Cigna Entry xx.xx.xx")
-        credit_acct = "1130"
-        
-        # Run the script when the button is pressed
-        if st.button("Generate Cigna JE File"):
-            if uploaded_file is not None:
-                # Process the Cigna data
-                processed_data = process_cig_data(uploaded_file)
-                
-                # Create the output file
-                output_file = create_cig_file(processed_data, journal_date, accounting_period, description_1, credit_acct)
-
-                st.success("Cigna file processed and ready for download!")
-
-                # Provide download button for the Cigna output
-                st.download_button(
-                    label="Download Cigna File",
-                    data=output_file,
-                    file_name="GLTRN2000.txt",
-                    mime="text/csv"
-                ) 
-            else:
-                st.error("Please upload a Cigna file.")
-    
+        runCigna()
     elif file_type == 'Contribution Reports':
-        st.header("Contribution Reports Processing")
-
-        # Upload the Arena batch file
-        st.write("Arena Batch File Upload")
-        uploaded_arena_file = st.file_uploader("Choose an Arena batch file", type="xlsx")
-        # Run the script when the button is clicked for Arena file
-        if st.button("Import Arena Batch File"):
-            if uploaded_arena_file is not None:
-                # Process the Arena batch data
-                arena_data = process_contrib_arena(uploaded_arena_file)
-                st.session_state.arena_data = arena_data  # Save the Arena data in session state
-                st.success("Arena batch file processed")
-            else:
-                st.error("Please upload an Arena batch file.")
-
-
-        # Upload the EZT batch file
-        st.write("EasyTithe Batch File Upload")
-        uploaded_ezt_file = st.file_uploader("Choose an EasyTithe batch file", type="xlsx")
-        # Run the script when the button is clicked for EZT file
-        if st.button("Import EasyTithe Batch File"):
-            if uploaded_ezt_file is not None:
-                # Process the EZT batch data
-                ezt_data = process_contrib_ezt(uploaded_ezt_file)
-                st.session_state.ezt_data = ezt_data  # Save the EZT data in session state
-                st.success("EasyTithe file processed")
-            else:
-                st.error("Please upload an EasyTithe batch file.")
-
-        # Combine the two files if both are uploaded
-        if 'arena_data' in st.session_state and 'ezt_data' in st.session_state:
-            if st.button("Combine Contribution Files"):
-                combined_data = combine_contributions(st.session_state.arena_data, st.session_state.ezt_data)
-                
-                # Provide download button for the combined file
-                st.download_button(
-                    label="Download Combined Contribution File",
-                    data=combined_data.to_csv(index=False).encode(),  # Converting to CSV format
-                    file_name="combined_contribution_report.csv",
-                    mime="text/csv"
-                )
-            
-        print("to be implemented")
+        runContributions()
 
 # Function to set streamlit logic
 def app():
@@ -579,14 +584,13 @@ def app():
         if st.button("Logout"):
             st.session_state.logged_in = False  # Reset login status
             st.rerun()  # Refresh the app after logging out
-        run_app()
+        # Run the application
+        call_methods()
         
-
 
 # STREAMLIT TESTING
 if __name__ == "__main__":
     app()
-
 
 # # TERMINAL TESTING
 # if __name__ == "__main__":
