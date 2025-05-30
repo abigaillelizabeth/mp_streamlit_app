@@ -429,11 +429,11 @@ def runArena():
             # Create the output file
             output_file = create_arena_file(processed_data)
 
-            st.success("Arena file processed and ready for download!")
+            st.success("Donor mailing list processed and ready for download!")
 
             # Provide download button for the payroll output
             st.download_button(
-                label="Download Arena File",
+                label="Download Donor Summary",
                 data=output_file,
                 file_name="Sorted_Mailing_List.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
