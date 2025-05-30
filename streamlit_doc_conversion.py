@@ -364,11 +364,12 @@ def authenticate(username, password):
     # if username == st.secrets["general"]["username"] and password == st.secrets["general"]["password"]:
     #     return True
     # return False
-
-    # Load the secrets from the secrets.toml file
-    #secrets = toml.load(".streamlit/secrets.toml")
-    #secrets = st.secrets
-    #st.write(secrets)
+    
+    # Debug: print the secrets to see if it is loaded correctly
+    print(st.secrets)  # This will print the entire secrets object to the logs
+    if "credentials" not in st.secrets:
+        st.error("Credentials key is missing from secrets!")
+        return False
 
     # Loop through the credentials to match the username and password
     for user in st.secrets["credentials"]:  # Access the list of users

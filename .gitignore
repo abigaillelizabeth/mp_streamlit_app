@@ -3,6 +3,7 @@
 GroupPremiumStatementRpt_03.2025.xlsx
 GroupPremiumStatementRpt_04.2025.xlsx
 PR Journal Entry_03.25.2025-1.xlsx
+.streamlit/secrets.toml
 
 # Ignoring all .xlsx example files
 *.xlsx
