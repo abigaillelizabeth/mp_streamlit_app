@@ -357,14 +357,43 @@ def mainArena(uploaded_file):
     return arena_final
 
 
+# CONTRIBUTION METHODS  
+# Function to read in the Arena data
+def process_contrib_arena(input_file):
+    # Read in the Arena data
+    raw_contrib_arena = pd.read_excel(input_file, sheet_name=0, header=None)
+
+    print(raw_contrib_arena.head())  # Print the first few rows to understand its structure
+    print(raw_contrib_arena.shape)   # Check the number of rows and columns
+
+    return raw_contrib_arena
+
+# Function to read in the EasyTithe data
+def process_contrib_ezt(input_file):
+    # Read in the EZT data
+    raw_contrib_ezt = pd.read_excel(input_file, sheet_name=0, header=None)
+
+    print(raw_contrib_ezt.head())  # Print the first few rows to understand its structure
+    print(raw_contrib_ezt.shape)   # Check the number of rows and columns
+
+    return raw_contrib_ezt
+
+# Function to Match contribution data imports
+def combine_contributions(arena_data, ezt_data):
+    # Assuming the two dataframes have some common columns (e.g., "Family Id" or "Person ID")
+    
+    # Here we simply merge the two datasets on a common column
+    # Adjust the merging strategy as needed (e.g., use a left join, inner join, etc.)
+    combined_data = pd.merge(arena_data, ezt_data, on="Family Id", how="outer")
+    
+    # You can add any logic to clean the data or adjust the structure if needed
+
+    return combined_data
+
+
 # STREAMLIT METHODS
 # Function to authenticate user
 def authenticate(username, password):
-    # # Your logic for authentication (e.g., check against hardcoded credentials or a database)
-    # if username == st.secrets["general"]["username"] and password == st.secrets["general"]["password"]:
-    #     return True
-    # return False
-
     # Debug: print the secrets to see if it is loaded correctly
     # print(st.secrets)  # This will print the entire secrets object to the logs
     # if "credentials" not in st.secrets:
@@ -380,11 +409,10 @@ def authenticate(username, password):
 # Function to print Streamlit methods
 def run_app():
     # When the user is logged in, show the rest of the app
-    #st.title("Welcome to the Streamlit App!")
     st.write("You are successfully logged in.")
     st.title("File Import & Conversion App")
-    # Step 1: Select the file type (Payroll or Cigna)
-    file_type = st.radio("Select the file type you want to convert:", ['Arena Mailing List', 'Payroll Workbook', 'Cigna Download', ])
+    file_type = st.radio("Select the file type you want to convert:", 
+                         ['Arena Mailing List', 'Payroll Workbook', 'Cigna Download', 'Contribution Reports'])
 
     if file_type == 'Arena Mailing List':
         st.header("Arena File Upload")
@@ -471,6 +499,51 @@ def run_app():
                 ) 
             else:
                 st.error("Please upload a Cigna file.")
+    
+    elif file_type == 'Contribution Reports':
+        st.header("Contribution Reports Processing")
+
+        # Upload the Arena batch file
+        st.write("Arena Batch File Upload")
+        uploaded_arena_file = st.file_uploader("Choose an Arena batch file", type="xlsx")
+        # Run the script when the button is clicked for Arena file
+        if st.button("Import Arena Batch File"):
+            if uploaded_arena_file is not None:
+                # Process the Arena batch data
+                arena_data = process_contrib_arena(uploaded_arena_file)
+                st.session_state.arena_data = arena_data  # Save the Arena data in session state
+                st.success("Arena batch file processed")
+            else:
+                st.error("Please upload an Arena batch file.")
+
+
+        # Upload the EZT batch file
+        st.write("EasyTithe Batch File Upload")
+        uploaded_ezt_file = st.file_uploader("Choose an EasyTithe batch file", type="xlsx")
+        # Run the script when the button is clicked for EZT file
+        if st.button("Import EasyTithe Batch File"):
+            if uploaded_ezt_file is not None:
+                # Process the EZT batch data
+                ezt_data = process_contrib_ezt(uploaded_ezt_file)
+                st.session_state.ezt_data = ezt_data  # Save the EZT data in session state
+                st.success("EasyTithe file processed")
+            else:
+                st.error("Please upload an EasyTithe batch file.")
+
+        # Combine the two files if both are uploaded
+        if 'arena_data' in st.session_state and 'ezt_data' in st.session_state:
+            if st.button("Combine Contribution Files"):
+                combined_data = combine_contributions(st.session_state.arena_data, st.session_state.ezt_data)
+                
+                # Provide download button for the combined file
+                st.download_button(
+                    label="Download Combined Contribution File",
+                    data=combined_data.to_csv(index=False).encode(),  # Converting to CSV format
+                    file_name="combined_contribution_report.csv",
+                    mime="text/csv"
+                )
+            
+        print("to be implemented")
 
 # Function to set streamlit logic
 def app():
@@ -509,17 +582,21 @@ def app():
         run_app()
         
 
-# TESTING
+
+# STREAMLIT TESTING
 if __name__ == "__main__":
-    # STREAMLIT TEST 
     app()
-    # # TERMINAL LOCAL TESTS
-    # # PAYROLL
-    # uploaded_PR = 'PR Journal Entry_03.25.2025-1.xlsx'  # Replace with the path to your test file
-    # mainPR(uploaded_PR)
-    # # CIGNA
-    # uploaded_Cig = 'GroupPremiumStatementRpt_03.2025.xlsx'  # Replace with the path to your test file
-    # mainCig(uploaded_Cig)
-    # # ARENA 
-    # uploaded_arena = 'Arena Masterfile Tester.xlsx'  # Replace with the path to your test file
-    # mainArena(uploaded_arena)
+
+
+# # TERMINAL TESTING
+# if __name__ == "__main__":
+#     # PAYROLL
+#     uploaded_PR = 'PR Journal Entry_03.25.2025-1.xlsx'  # Replace with the path to your test file
+#     mainPR(uploaded_PR)
+#     # CIGNA
+#     uploaded_Cig = 'GroupPremiumStatementRpt_03.2025.xlsx'  # Replace with the path to your test file
+#     mainCig(uploaded_Cig)
+#     # ARENA 
+#     uploaded_arena = 'Arena Masterfile Tester.xlsx'  # Replace with the path to your test file
+#     mainArena(uploaded_arena)
+
