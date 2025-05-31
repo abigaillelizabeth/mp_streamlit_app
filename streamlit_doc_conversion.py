@@ -6,6 +6,7 @@ import numpy as np
 import io
 import csv
 
+
 # PAYROLL METHODS
 # Function to reformat the input data
 def process_pr_data(input_file):
