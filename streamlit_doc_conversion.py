@@ -7,6 +7,126 @@ import io
 import csv
 
 
+# ARENA METHODS  
+# Function to reformat the input data
+def process_arena_data(input_file):
+    # Read in the PR data
+    raw_arena = pd.read_excel(input_file, sheet_name=0, header=None)
+    #print(raw_arena.head())  # Print the first few rows to understand its structure
+    #print(raw_arena.shape)   # Check the number of rows and columns
+
+    # remove extra columns
+    raw_arena = raw_arena.iloc[:, list(range(0, 14)) + [15]]
+    #print(raw_arena.head())
+
+    # Group by Family Id (column 0) and Person ID (column 1)
+    raw_arena.iloc[1:, 14] = raw_arena.iloc[1:, 14].astype(float)
+    grouped_arena = raw_arena.groupby([0, 1], as_index=False).agg({
+        2: 'first',    # Keep the first value for 'Last Name' (column 2)
+        3: 'first',    # Keep the first value for 'First Name' (column 3)
+        4: 'first',    # Keep the first value for 'Nick Name' (column 4)
+        5: 'first',    # Keep the first value for 'Spouse Title' (column 5)
+        6: 'first',    # Keep the first value for 'Spouse Last Name' (column 6)
+        7: 'first',    # Keep the first value for 'Spouse First Name' (column 7)
+        8: 'first',    # Keep the first value for 'Spouse Nick Name' (column 8)
+        9: 'first',    # Keep the first value for 'Address' (column 9)
+        10: 'first',   # Keep the first value for 'City' (column 10)
+        11: 'first',   # Keep the first value for 'State' (column 11)
+        12: 'first',   # Keep the first value for 'Zip' (column 12)
+        13: 'first',   # Keep the first value for 'Email' (column 13)
+        15: 'sum'      # Sum the 'Contribution Fund Amount' (column 15)
+    })
+
+    # Rename the columns for clarity
+    grouped_arena.columns = ['Family Id', 'Person ID', 'Last Name', 'First Name', 'Nick Name', 
+                             'Spouse Title', 'Spouse Last Name', 'Spouse First Name', 'Spouse Nick Name', 
+                             'Address', 'City', 'State', 'Zip', 'Email', 'Total Contribution Fund Amount']
+
+    # print("printing grouped arena")
+    # print(grouped_arena.shape)
+    # print(grouped_arena.head(20))
+
+    # Add a blank column "Title" at index 3
+    grouped_arena.insert(3, 'Title', '')  # Insert the new "Title" column at index 3 and leave it blank
+
+    # Sort by Last name
+    sorted_arena = grouped_arena.sort_values(by=['Last Name'])
+
+    # TO_DO: if first name (index 4) == Nick Name (index 5) == blank, separate those columns to be at the very bottom of the output
+    # Step 1: Filter rows where 'First Name' and 'Nick Name' are both blank
+    blank_names = sorted_arena[(sorted_arena['First Name'].isna()) & (sorted_arena['Nick Name'].isna())]
+
+    # Step 2: Filter out those rows from the main DataFrame
+    sorted_arena = sorted_arena[~((sorted_arena['First Name'].isna()) & (sorted_arena['Nick Name'].isna()))]
+
+    # Step 3: Append the rows with blank names at the bottom of the DataFrame
+    sorted_arena = pd.concat([sorted_arena, blank_names])
+
+    # Remove rows that are identical to the column name
+    sorted_arena = sorted_arena[~(sorted_arena == sorted_arena.columns).all(axis=1)]
+
+    arena_data = sorted_arena
+    return arena_data
+# Function to generate the output data
+def create_arena_file(processed_arena_data, is_streamlit = True):
+    if is_streamlit:
+        # If running in Streamlit, keep the file in memory (no save to disk)
+        arena_file = io.BytesIO()  # In-memory file for Streamlit (binary mode)
+        processed_arena_data.to_excel(arena_file, index=False, engine='openpyxl')  # Use openpyxl for Excel output
+        arena_file.seek(0)  # Go to the beginning of the in-memory file
+    else:
+        # If NOT running in Streamlit, save the file to disk
+        output_file_path = "Sorted_Mailing_List.xlsx"
+        processed_arena_data.to_excel(output_file_path, index=False, engine='openpyxl')  # Save to disk
+        #processed_arena_data.to_excel(output_file_path, index=False)
+        print(f"File successfully saved to {output_file_path}")
+        arena_file = None  # Return None or any placeholder since file is saved on disk
+
+    return arena_file
+# Arena Main
+def mainArena(uploaded_file):
+    processed_data = process_arena_data(uploaded_file)
+    print("data has been processed.")
+
+    # Test the file creation function
+    arena_final = create_arena_file(processed_data, is_streamlit = False)
+    #print(arena_final)
+
+    if arena_final != None:
+        print("File created successfully. Ready for download.")
+    else:
+        print("File has been saved to disk.")
+
+    return arena_final
+# Function to run arena methods  
+def runArenaMain():
+    st.header("Arena File Upload")
+    # Input Information
+    uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx")
+
+    # Run the script when the button is pressed
+    if st.button("Create Donor Summary"):
+        if uploaded_file is not None:
+            # Process the payroll data
+            processed_data = process_arena_data(uploaded_file)
+            
+            # Create the output file
+            output_file = create_arena_file(processed_data)
+
+            st.success("Donor mailing list processed and ready for download!")
+
+            # Provide download button for the payroll output
+            st.download_button(
+                label="Download Donor Summary",
+                data=output_file,
+                file_name="Sorted_Mailing_List.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                #mime="text/csv"
+            )
+        else:
+            st.error("Please upload an arena file.")
+
+
 # PAYROLL METHODS
 # Function to reformat the input data
 def process_pr_data(input_file):
@@ -324,146 +444,75 @@ def runCigna():
             st.error("Please upload a Cigna file.")
 
 
-# ARENA METHODS  
-# Function to reformat the input data
-def process_arena_data(input_file):
-    # Read in the PR data
-    raw_arena = pd.read_excel(input_file, sheet_name=0, header=None)
-    #print(raw_arena.head())  # Print the first few rows to understand its structure
-    #print(raw_arena.shape)   # Check the number of rows and columns
-
-    # remove extra columns
-    raw_arena = raw_arena.iloc[:, list(range(0, 14)) + [15]]
-    #print(raw_arena.head())
-
-    # Group by Family Id (column 0) and Person ID (column 1)
-    raw_arena.iloc[1:, 14] = raw_arena.iloc[1:, 14].astype(float)
-    grouped_arena = raw_arena.groupby([0, 1], as_index=False).agg({
-        2: 'first',    # Keep the first value for 'Last Name' (column 2)
-        3: 'first',    # Keep the first value for 'First Name' (column 3)
-        4: 'first',    # Keep the first value for 'Nick Name' (column 4)
-        5: 'first',    # Keep the first value for 'Spouse Title' (column 5)
-        6: 'first',    # Keep the first value for 'Spouse Last Name' (column 6)
-        7: 'first',    # Keep the first value for 'Spouse First Name' (column 7)
-        8: 'first',    # Keep the first value for 'Spouse Nick Name' (column 8)
-        9: 'first',    # Keep the first value for 'Address' (column 9)
-        10: 'first',   # Keep the first value for 'City' (column 10)
-        11: 'first',   # Keep the first value for 'State' (column 11)
-        12: 'first',   # Keep the first value for 'Zip' (column 12)
-        13: 'first',   # Keep the first value for 'Email' (column 13)
-        15: 'sum'      # Sum the 'Contribution Fund Amount' (column 15)
-    })
-
-    # Rename the columns for clarity
-    grouped_arena.columns = ['Family Id', 'Person ID', 'Last Name', 'First Name', 'Nick Name', 
-                             'Spouse Title', 'Spouse Last Name', 'Spouse First Name', 'Spouse Nick Name', 
-                             'Address', 'City', 'State', 'Zip', 'Email', 'Total Contribution Fund Amount']
-
-    # print("printing grouped arena")
-    # print(grouped_arena.shape)
-    # print(grouped_arena.head(20))
-
-    # Add a blank column "Title" at index 3
-    grouped_arena.insert(3, 'Title', '')  # Insert the new "Title" column at index 3 and leave it blank
-
-    # Sort by Last name
-    sorted_arena = grouped_arena.sort_values(by=['Last Name'])
-
-    # TO_DO: if first name (index 4) == Nick Name (index 5) == blank, separate those columns to be at the very bottom of the output
-    # Step 1: Filter rows where 'First Name' and 'Nick Name' are both blank
-    blank_names = sorted_arena[(sorted_arena['First Name'].isna()) & (sorted_arena['Nick Name'].isna())]
-
-    # Step 2: Filter out those rows from the main DataFrame
-    sorted_arena = sorted_arena[~((sorted_arena['First Name'].isna()) & (sorted_arena['Nick Name'].isna()))]
-
-    # Step 3: Append the rows with blank names at the bottom of the DataFrame
-    sorted_arena = pd.concat([sorted_arena, blank_names])
-
-    # Remove rows that are identical to the column name
-    sorted_arena = sorted_arena[~(sorted_arena == sorted_arena.columns).all(axis=1)]
-
-    arena_data = sorted_arena
-    return arena_data
-# Function to generate the output data
-def create_arena_file(processed_arena_data, is_streamlit = True):
-    if is_streamlit:
-        # If running in Streamlit, keep the file in memory (no save to disk)
-        arena_file = io.BytesIO()  # In-memory file for Streamlit (binary mode)
-        processed_arena_data.to_excel(arena_file, index=False, engine='openpyxl')  # Use openpyxl for Excel output
-        arena_file.seek(0)  # Go to the beginning of the in-memory file
-    else:
-        # If NOT running in Streamlit, save the file to disk
-        output_file_path = "Sorted_Mailing_List.xlsx"
-        processed_arena_data.to_excel(output_file_path, index=False, engine='openpyxl')  # Save to disk
-        #processed_arena_data.to_excel(output_file_path, index=False)
-        print(f"File successfully saved to {output_file_path}")
-        arena_file = None  # Return None or any placeholder since file is saved on disk
-
-    return arena_file
-# Arena Main
-def mainArena(uploaded_file):
-    processed_data = process_arena_data(uploaded_file)
-    print("data has been processed.")
-
-    # Test the file creation function
-    arena_final = create_arena_file(processed_data, is_streamlit = False)
-    #print(arena_final)
-
-    if arena_final != None:
-        print("File created successfully. Ready for download.")
-    else:
-        print("File has been saved to disk.")
-
-    return arena_final
-# Function to run arena methods  
-def runArena():
-    st.header("Arena File Upload")
-    # Input Information
-    uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx")
-
-    # Run the script when the button is pressed
-    if st.button("Create Donor Summary"):
-        if uploaded_file is not None:
-            # Process the payroll data
-            processed_data = process_arena_data(uploaded_file)
-            
-            # Create the output file
-            output_file = create_arena_file(processed_data)
-
-            st.success("Donor mailing list processed and ready for download!")
-
-            # Provide download button for the payroll output
-            st.download_button(
-                label="Download Donor Summary",
-                data=output_file,
-                file_name="Sorted_Mailing_List.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                #mime="text/csv"
-            )
-        else:
-            st.error("Please upload an arena file.")
-
-
-# CONTRIBUTION METHODS  
-def process_contrib_arena(uploaded_arena_files):
+# CONTRIBUTION METHODS 
+def arena_master_included(uploaded_arena_files):
+    print("running arena_master_included")
     arena_data_list = []  # List to store the processed data from each file
-    
+
+    # Sort the files by name (to check length and determine if master or batch file)
+    uploaded_arena_files.sort(key=lambda x: len(x.name))  # Sort by the file name length
+
+    master_file_found = False
+    combined_arena_data = pd.DataFrame()  # Initialize the combined dataframe
+
+    # Process each uploaded Arena file
+    for uploaded_arena_file in uploaded_arena_files:
+        # Read in the Arena data with no header
+        raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
+
+        # Check if the file name has more than 5 characters (indicating it's a master file)
+        if len(uploaded_arena_file.name) > 5:
+            # Master file logic
+            print(f"Master file found: {uploaded_arena_file.name}")
+            master_file_found = True
+
+            #print(uploaded_arena_file.colnames())
+            
+            # # Manually combine the first two rows into one header row, if both rows have values
+            # new_columns = [
+            #     f"{col1} {col2}" if pd.notna(col1) and pd.notna(col2) else col1 if pd.notna(col1) else col2
+            #     for col1, col2 in zip(raw_contrib_arena.iloc[0], raw_contrib_arena.iloc[1])
+            # ]
+            # raw_contrib_arena.columns = new_columns  # Set the new columns
+            # raw_contrib_arena = raw_contrib_arena.drop([0, 1])  # Drop the first two rows (header rows)
+            # raw_contrib_arena.reset_index(drop=True, inplace=True)  # Reset the index
+
+            # # Add the "Batch #" column for the master file (already included)
+            # raw_contrib_arena["Batch #"] = batch_number
+            combined_arena_data = raw_contrib_arena  # Initialize combined_arena_data with the master file
+
+        else:
+             # Extract the batch number (first 5 digits of the file name)
+            batch_number = uploaded_arena_file.name.split('.')[0]
+
+            # Batch file logic (files with 5-digit names)
+            print(f"Processing batch file: {uploaded_arena_file.name}")
+            processed_batch_file = arena_all_new([uploaded_arena_file])  # Process batch files and return a DataFrame
+            processed_batch_file["Batch #"] = batch_number  # Add the "Batch #" column to the batch file
+
+            # Append to the list for combining later
+            arena_data_list.append(processed_batch_file)
+
+    # If there are batch files, combine them with the master file
+    if arena_data_list:
+        combined_arena_data = pd.concat([combined_arena_data] + arena_data_list, ignore_index=True)
+
+    return combined_arena_data
+
+def arena_all_new(uploaded_arena_files):
+    print("running arena_all_new")
+    arena_data_list = []  # List to store the processed data from each file
+
     for idx, uploaded_arena_file in enumerate(uploaded_arena_files):
         # Read in the Arena data with no header
         raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
 
-        # Manually combine the first two rows into one header row, but only if both rows have values
-        new_columns = [
-            f"{col1} {col2}" if pd.notna(col1) and pd.notna(col2) else col1 if pd.notna(col1) else col2
-            for col1, col2 in zip(raw_contrib_arena.iloc[0], raw_contrib_arena.iloc[1])
-        ]
-        
-        # Assign the new concatenated columns as the header
-        raw_contrib_arena.columns = new_columns
-        raw_contrib_arena = raw_contrib_arena.drop([0, 1])  # Drop the first two rows (header rows)
+        # Call the arena_col_names function to adjust the column headers
+        raw_contrib_arena = arena_col_names(raw_contrib_arena)
 
-        # Move the data from row 1 (index 1) to the top (index 0)
-        raw_contrib_arena.reset_index(drop=True, inplace=True)
+        # Add a column for "Batch #" based on the file name (5-digit string)
+        batch_number = uploaded_arena_file.name.split('.')[0]  # Get the 5-digit file name without extension
+        raw_contrib_arena["Batch #"] = batch_number  # Add the "Batch #" column to the dataframe
 
         # Append the processed data to the list
         arena_data_list.append(raw_contrib_arena)
@@ -471,16 +520,50 @@ def process_contrib_arena(uploaded_arena_files):
         # If it's the first file, initialize the combined dataframe
         if idx == 0:
             combined_arena_data = raw_contrib_arena
+        
         else:
             # If it's not the first file, append it to the combined dataframe
             combined_arena_data = pd.concat([combined_arena_data, raw_contrib_arena], ignore_index=True)
+        
+    return combined_arena_data
+
+def arena_col_names(raw_contrib_arena):
+    print("running arena_col_names")
+    # Manually combine the first two rows into one header row, but only if both rows have values
+    new_columns = [
+        f"{col1} {col2}" if pd.notna(col1) and pd.notna(col2) else col1 if pd.notna(col1) else col2
+        for col1, col2 in zip(raw_contrib_arena.iloc[0], raw_contrib_arena.iloc[1])
+    ]
+    # Assign the new concatenated columns as the header
+    raw_contrib_arena.columns = new_columns
+    raw_contrib_arena = raw_contrib_arena.drop([0, 1])  # Drop the first two rows (header rows)
+    # Move the data from row 1 (index 1) to the top (index 0)
+    raw_contrib_arena.reset_index(drop=True, inplace=True)
+    return raw_contrib_arena
+
+def arena_contributions(uploaded_arena_files):
+    print("running arena_contributions")
+    # Check if all files have a 5-digit name (without the file extension)
+    all_five_digits = True
     
-    # Return the combined data
+    # Iterate through each file in the uploaded files
+    for uploaded_arena_file in uploaded_arena_files:
+        file_name = uploaded_arena_file.name.split('.')[0]  # Remove file extension to check the name length
+        if len(file_name) != 5 or not file_name.isdigit():  # Check if the length is not 5 or it's not numeric
+            all_five_digits = False
+            break  # No need to check further, as we already know the files don't match the condition
+    
+    # Call appropriate function based on the file name length
+    if all_five_digits:
+        combined_arena_data = arena_all_new(uploaded_arena_files)
+    else:
+        combined_arena_data = arena_master_included(uploaded_arena_files)
+
     return combined_arena_data
 
 
 # Function to read in the EasyTithe data
-def process_contrib_ezt(input_file):
+def ezt_contributions(input_file):
     # Read in the EZT data
     raw_contrib_ezt = pd.read_excel(input_file, sheet_name=0, header=None)
 
@@ -488,6 +571,7 @@ def process_contrib_ezt(input_file):
     print(raw_contrib_ezt.shape)   # Check the number of rows and columns
 
     return raw_contrib_ezt
+
 # Function to Match contribution data imports
 def combine_contributions(arena_data, ezt_data):
     # Assuming the two dataframes have some common columns (e.g., "Family Id" or "Person ID")
@@ -499,8 +583,10 @@ def combine_contributions(arena_data, ezt_data):
     # You can add any logic to clean the data or adjust the structure if needed
 
     return combined_data
+
 # Function to run contribution methods  
 def runContributions():
+    print("running runContributions")
     st.header("Contribution Reports Processing")
 
     # Upload Arena Batch Files (Allow multiple files)
@@ -510,19 +596,30 @@ def runContributions():
     if st.button("Import Arena Batches"):
         if uploaded_arena_files:
             # Call the process_contrib_arena to handle the file processing and combine the files
-            combined_arena_data = process_contrib_arena(uploaded_arena_files)
+            combined_arena_data = arena_contributions(uploaded_arena_files)
+            st.write("Combined Arena Data", combined_arena_data)
+            print("Combined Arena Data")
 
             # Store the combined Arena data in session state
             st.session_state.arena_data = combined_arena_data
             st.success("Arena batches processed and combined successfully")
 
-            # Provide download button for the merged Arena data (Excel file)
             # Use a BytesIO stream for writing the Excel file in memory
             output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                combined_arena_data.to_excel(writer, index=False)
+            if combined_arena_data is not None and not combined_arena_data.empty:
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    combined_arena_data.to_excel(writer, index=False)
+            else:
+                st.error("No valid data to write to Excel.")
+                return
+
+            # with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            #     combined_arena_data.to_excel(writer, index=False)
+            #     writer.save()
+
             output.seek(0)  # Go to the beginning of the in-memory file
 
+            # Provide download button for the merged Arena data (Excel file)
             st.download_button(
                 label="Download Merged Arena Data",
                 data=output,
@@ -530,40 +627,37 @@ def runContributions():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"  # Correct MIME type for Excel files
             )
 
-            # After this, allow the user to proceed to the next step, like uploading the EZT file
-            #st.write("---") # separator for clarity
-            #st.write("Now you can upload the EasyTithe Batch File.")
-
         else:
             st.error("Please upload at least one Arena batch.")
 
-    # Upload the EZT batch file
-    st.write("EasyTithe Batch File Upload")
-    uploaded_ezt_file = st.file_uploader("Choose an EasyTithe batch file", type="xlsx")
-    # Run the script when the button is clicked for EZT file
-    if st.button("Import EasyTithe Batch"):
-        if uploaded_ezt_file is not None:
-            # Process the EZT batch data
-            ezt_data = process_contrib_ezt(uploaded_ezt_file)
-            st.session_state.ezt_data = ezt_data  # Save the EZT data in session state
-            st.success("EasyTithe batch processed")
-        else:
-            st.error("Please upload an EasyTithe batch.")
+    # # Upload the EZT batch file
+    # st.write("EasyTithe Batch File Upload")
+    # uploaded_ezt_file = st.file_uploader("Choose an EasyTithe batch file", type="xlsx")
+    # # Run the script when the button is clicked for EZT file
+    # if st.button("Import EasyTithe Batch"):
+    #     if uploaded_ezt_file is not None:
+    #         # Process the EZT batch data
+    #         ezt_data = ezt_contributions(uploaded_ezt_file)
+    #         st.session_state.ezt_data = ezt_data  # Save the EZT data in session state
+    #         st.success("EasyTithe batch processed")
+    #     else:
+    #         st.error("Please upload an EasyTithe batch.")
 
-    # Combine the two files if both are uploaded
-    if 'arena_data' in st.session_state and 'ezt_data' in st.session_state:
-        if st.button("Match Contributions"):
-            combined_contrib_data = combine_contributions(st.session_state.arena_data, st.session_state.ezt_data)
-            # Provide download button for the combined file
-            st.download_button(
-                label="Download Matched Contributions",
-                data=combined_contrib_data.to_csv(index=False).encode(),  # Converting to CSV format
-                file_name="combined_contribution_report.csv",
-                mime="text/csv"
-            )
-        
-    print("to be implemented")
+    # # Combine the two files if both are uploaded
+    # if 'arena_data' in st.session_state and 'ezt_data' in st.session_state:
+    #     if st.button("Match Contributions"):
+    #         combined_contrib_data = combine_contributions(st.session_state.arena_data, st.session_state.ezt_data)
+    #         # Provide download button for the combined file
+    #         st.download_button(
+    #             label="Download Matched Contributions",
+    #             data=combined_contrib_data.to_csv(index=False).encode(),  # Converting to CSV format
+    #             file_name="combined_contribution_report.csv",
+    #             mime="text/csv"
+    #         )
 
+# def runArenaContributions()
+# def runEZTContributions()
+# def runMatchContributions()
 
 # STREAMLIT METHODS
 # Function to authenticate user
@@ -583,7 +677,7 @@ def call_methods():
                          ['Arena Mailing List', 'Payroll Workbook', 'Cigna Download', 'Contribution Reports'])
     # Run the correct set of methods based on user-selected file type
     if file_type == 'Arena Mailing List':
-        runArena()
+        runArenaMain()
     elif file_type == 'Payroll Workbook':
         runPayroll()
     elif file_type == 'Cigna Download':
@@ -592,7 +686,7 @@ def call_methods():
         runContributions()
 
 # Function to set streamlit logic 
-def app():
+def run_gui():
     # Set up session state to track login status
     if "logged_in" not in st.session_state:
         st.session_state.logged_in = False
@@ -630,11 +724,12 @@ def app():
 
 # Streamit WITHOUT AUTH
 if __name__ == "__main__":
+    print("running streamlit app")
     call_methods()
     
 # Streamit WITH AUTH
 #if __name__ == "__main__":
-#    app()
+#    run_gui()
 
 # # TERMINAL TESTING
 # if __name__ == "__main__":
