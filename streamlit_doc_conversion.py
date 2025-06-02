@@ -445,15 +445,40 @@ def runArena():
 
 
 # CONTRIBUTION METHODS  
-# Function to read in the Arena data
-def process_contrib_arena(input_file):
-    # Read in the Arena data
-    raw_contrib_arena = pd.read_excel(input_file, sheet_name=0, header=None)
+def process_contrib_arena(uploaded_arena_files):
+    arena_data_list = []  # List to store the processed data from each file
+    
+    for idx, uploaded_arena_file in enumerate(uploaded_arena_files):
+        # Read in the Arena data with no header
+        raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
 
-    print(raw_contrib_arena.head())  # Print the first few rows to understand its structure
-    print(raw_contrib_arena.shape)   # Check the number of rows and columns
+        # Manually combine the first two rows into one header row, but only if both rows have values
+        new_columns = [
+            f"{col1} {col2}" if pd.notna(col1) and pd.notna(col2) else col1 if pd.notna(col1) else col2
+            for col1, col2 in zip(raw_contrib_arena.iloc[0], raw_contrib_arena.iloc[1])
+        ]
+        
+        # Assign the new concatenated columns as the header
+        raw_contrib_arena.columns = new_columns
+        raw_contrib_arena = raw_contrib_arena.drop([0, 1])  # Drop the first two rows (header rows)
 
-    return raw_contrib_arena
+        # Move the data from row 1 (index 1) to the top (index 0)
+        raw_contrib_arena.reset_index(drop=True, inplace=True)
+
+        # Append the processed data to the list
+        arena_data_list.append(raw_contrib_arena)
+        
+        # If it's the first file, initialize the combined dataframe
+        if idx == 0:
+            combined_arena_data = raw_contrib_arena
+        else:
+            # If it's not the first file, append it to the combined dataframe
+            combined_arena_data = pd.concat([combined_arena_data, raw_contrib_arena], ignore_index=True)
+    
+    # Return the combined data
+    return combined_arena_data
+
+
 # Function to read in the EasyTithe data
 def process_contrib_ezt(input_file):
     # Read in the EZT data
@@ -484,16 +509,31 @@ def runContributions():
     # Process the uploaded Arena files
     if st.button("Import Arena Batches"):
         if uploaded_arena_files:
-            arena_data_list = []
-            for uploaded_arena_file in uploaded_arena_files:
-                # Process each uploaded Arena file and append the result to a list
-                arena_data = process_contrib_arena(uploaded_arena_file)
-                arena_data_list.append(arena_data)
+            # Call the process_contrib_arena to handle the file processing and combine the files
+            combined_arena_data = process_contrib_arena(uploaded_arena_files)
 
-            # Combine all Arena data into one DataFrame
-            combined_arena_data = pd.concat(arena_data_list, ignore_index=True)
-            st.session_state.arena_data = combined_arena_data  # Store the combined Arena data in session state
+            # Store the combined Arena data in session state
+            st.session_state.arena_data = combined_arena_data
             st.success("Arena batches processed and combined successfully")
+
+            # Provide download button for the merged Arena data (Excel file)
+            # Use a BytesIO stream for writing the Excel file in memory
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                combined_arena_data.to_excel(writer, index=False)
+            output.seek(0)  # Go to the beginning of the in-memory file
+
+            st.download_button(
+                label="Download Merged Arena Data",
+                data=output,
+                file_name="merged_arena_batches.xlsx",  # Excel file
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"  # Correct MIME type for Excel files
+            )
+
+            # After this, allow the user to proceed to the next step, like uploading the EZT file
+            #st.write("---") # separator for clarity
+            #st.write("Now you can upload the EasyTithe Batch File.")
+
         else:
             st.error("Please upload at least one Arena batch.")
 
@@ -512,12 +552,12 @@ def runContributions():
 
     # Combine the two files if both are uploaded
     if 'arena_data' in st.session_state and 'ezt_data' in st.session_state:
-        if st.button("Combine Contribution Files"):
-            combined_data = combine_contributions(st.session_state.arena_data, st.session_state.ezt_data)
+        if st.button("Match Contributions"):
+            combined_contrib_data = combine_contributions(st.session_state.arena_data, st.session_state.ezt_data)
             # Provide download button for the combined file
             st.download_button(
-                label="Download Combined Contributions",
-                data=combined_data.to_csv(index=False).encode(),  # Converting to CSV format
+                label="Download Matched Contributions",
+                data=combined_contrib_data.to_csv(index=False).encode(),  # Converting to CSV format
                 file_name="combined_contribution_report.csv",
                 mime="text/csv"
             )
@@ -551,7 +591,7 @@ def call_methods():
     elif file_type == 'Contribution Reports':
         runContributions()
 
-# Function to set streamlit logic
+# Function to set streamlit logic 
 def app():
     # Set up session state to track login status
     if "logged_in" not in st.session_state:
@@ -587,11 +627,14 @@ def app():
             st.rerun()  # Refresh the app after logging out
         # Run the application
         call_methods()
-        
 
-# STREAMLIT TESTING
+# Streamit WITHOUT AUTH
 if __name__ == "__main__":
-    app()
+    call_methods()
+    
+# Streamit WITH AUTH
+#if __name__ == "__main__":
+#    app()
 
 # # TERMINAL TESTING
 # if __name__ == "__main__":
