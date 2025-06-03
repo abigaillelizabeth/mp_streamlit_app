@@ -461,18 +461,6 @@ def arena_master_included(uploaded_arena_files):
 
     # Process each uploaded Arena file
     for uploaded_arena_file in uploaded_arena_files:
-<<<<<<< HEAD
-        # Read in the Arena data with no header
-        #raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None, engine="openpyxl")
-        if not zipfile.is_zipfile(uploaded_arena_file):
-            st.error(f"{uploaded_arena_file.name} is not a valid Excel (.xlsx) file. Please re-save it from Excel.")
-            continue
-        try:
-            raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None, engine="openpyxl")
-        except Exception as e:
-            print(f"Failed to read {uploaded_arena_file.name}: {e}")
-            st.error("There was a problem reading the Arena file. Please check the file format and try again.")
-=======
         # Read in the EZT data based on type
         filename = uploaded_arena_file.name.lower()
 
@@ -482,7 +470,6 @@ def arena_master_included(uploaded_arena_files):
             raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
         else:
             st.warning(f"Unsupported file type: {uploaded_arena_file.name}")
->>>>>>> revert-to-working-code
             continue
 
         # Check if the file name has more than 5 characters (indicating it's a master file)
@@ -521,10 +508,6 @@ def arena_all_new(uploaded_arena_files):
     arena_data_list = []  # List to store the processed data from each file
 
     for idx, uploaded_arena_file in enumerate(uploaded_arena_files):
-<<<<<<< HEAD
-        # Read in the Arena data with no header
-        raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None, engine="openpyxl")
-=======
         filename = uploaded_arena_file.name.lower()
         # Read in the Arena data based on type
         if filename.endswith('.csv'):
@@ -536,7 +519,6 @@ def arena_all_new(uploaded_arena_files):
             continue
 
         #raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
->>>>>>> revert-to-working-code
 
         # Call the arena_col_names function to adjust the column headers
         raw_contrib_arena = arena_col_names(raw_contrib_arena)
