@@ -1,10 +1,13 @@
 # IMPORTS STATEMENTS
 import streamlit as st
-import toml
+#import toml
 import pandas as pd
 import numpy as np
-import io
 import csv
+from openpyxl import load_workbook
+from openpyxl.styles import numbers
+import tempfile
+import io
 
 
 # ARENA METHODS  
@@ -444,7 +447,7 @@ def runCigna():
             st.error("Please upload a Cigna file.")
 
 
-# CONTRIBUTION METHODS 
+# CONTRIBUTIONS- ARENA
 def arena_master_included(uploaded_arena_files):
     print("running arena_master_included")
     arena_data_list = []  # List to store the processed data from each file
@@ -461,25 +464,19 @@ def arena_master_included(uploaded_arena_files):
         raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
 
         # Check if the file name has more than 5 characters (indicating it's a master file)
-        if len(uploaded_arena_file.name) > 5:
+        if len(uploaded_arena_file.name.split('.')[0]) > 5:
             # Master file logic
             print(f"Master file found: {uploaded_arena_file.name}")
             master_file_found = True
 
-            #print(uploaded_arena_file.colnames())
-            
-            # # Manually combine the first two rows into one header row, if both rows have values
-            # new_columns = [
-            #     f"{col1} {col2}" if pd.notna(col1) and pd.notna(col2) else col1 if pd.notna(col1) else col2
-            #     for col1, col2 in zip(raw_contrib_arena.iloc[0], raw_contrib_arena.iloc[1])
-            # ]
-            # raw_contrib_arena.columns = new_columns  # Set the new columns
-            # raw_contrib_arena = raw_contrib_arena.drop([0, 1])  # Drop the first two rows (header rows)
-            # raw_contrib_arena.reset_index(drop=True, inplace=True)  # Reset the index
+            #print(uploaded_arena_file.colnames)
 
-            # # Add the "Batch #" column for the master file (already included)
-            # raw_contrib_arena["Batch #"] = batch_number
-            combined_arena_data = raw_contrib_arena  # Initialize combined_arena_data with the master file
+            # Use only the first row as the header
+            raw_contrib_arena.columns = raw_contrib_arena.iloc[0]
+            raw_contrib_arena = raw_contrib_arena.drop(index=0)
+            raw_contrib_arena.reset_index(drop=True, inplace=True)
+
+            combined_arena_data = raw_contrib_arena  # Initialize combined_arena_data with the raw master file
 
         else:
              # Extract the batch number (first 5 digits of the file name)
@@ -492,7 +489,7 @@ def arena_master_included(uploaded_arena_files):
 
             # Append to the list for combining later
             arena_data_list.append(processed_batch_file)
-
+    
     # If there are batch files, combine them with the master file
     if arena_data_list:
         combined_arena_data = pd.concat([combined_arena_data] + arena_data_list, ignore_index=True)
@@ -520,7 +517,6 @@ def arena_all_new(uploaded_arena_files):
         # If it's the first file, initialize the combined dataframe
         if idx == 0:
             combined_arena_data = raw_contrib_arena
-        
         else:
             # If it's not the first file, append it to the combined dataframe
             combined_arena_data = pd.concat([combined_arena_data, raw_contrib_arena], ignore_index=True)
@@ -539,41 +535,174 @@ def arena_col_names(raw_contrib_arena):
     raw_contrib_arena = raw_contrib_arena.drop([0, 1])  # Drop the first two rows (header rows)
     # Move the data from row 1 (index 1) to the top (index 0)
     raw_contrib_arena.reset_index(drop=True, inplace=True)
+
     return raw_contrib_arena
 
-def arena_contributions(uploaded_arena_files):
-    print("running arena_contributions")
+def arena_merge(uploaded_arena_files):
+    print("running arena_merge")
     # Check if all files have a 5-digit name (without the file extension)
     all_five_digits = True
     
     # Iterate through each file in the uploaded files
-    for uploaded_arena_file in uploaded_arena_files:
-        file_name = uploaded_arena_file.name.split('.')[0]  # Remove file extension to check the name length
+    for arena_file in uploaded_arena_files:
+        file_name = arena_file.name.split('.')[0]  # Remove file extension to check the name length
         if len(file_name) != 5 or not file_name.isdigit():  # Check if the length is not 5 or it's not numeric
             all_five_digits = False
             break  # No need to check further, as we already know the files don't match the condition
     
     # Call appropriate function based on the file name length
     if all_five_digits:
-        combined_arena_data = arena_all_new(uploaded_arena_files)
+        combined_arena_data = arena_all_new(arena_file)
     else:
-        combined_arena_data = arena_master_included(uploaded_arena_files)
+        combined_arena_data = arena_master_included(arena_file)
 
     return combined_arena_data
 
+def arena_excel(combined_arena_data):
+    # Save to a temporary Excel file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+        with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
+            combined_arena_data.to_excel(writer, index=False)
 
-# Function to read in the EasyTithe data
-def ezt_contributions(input_file):
-    # Read in the EZT data
-    raw_contrib_ezt = pd.read_excel(input_file, sheet_name=0, header=None)
+        # Open workbook to apply formatting
+        wb = load_workbook(tmp.name)
+        ws = wb.active
 
-    print(raw_contrib_ezt.head())  # Print the first few rows to understand its structure
-    print(raw_contrib_ezt.shape)   # Check the number of rows and columns
+        # Grab header row to locate each column index
+        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
 
-    return raw_contrib_ezt
+        for row in ws.iter_rows(min_row=2):
+            for i, header in enumerate(headers):
+                cell = row[i]
+                header_lower = str(header).lower().strip()
+                if header_lower in ["amount", "contribution amount", "total"]:
+                    cell.number_format = '"$"#,##0.00'
+                elif "date" in header_lower:
+                    cell.number_format = 'mm/dd/yy'
+                else:
+                    cell.number_format = 'General'
 
-# Function to Match contribution data imports
-def combine_contributions(arena_data, ezt_data):
+        wb.save(tmp.name)
+
+        # Stream it into memory for download
+        output = io.BytesIO()
+        with open(tmp.name, "rb") as f:
+            output.write(f.read())
+        output.seek(0)
+
+    return output
+
+def runArenaContributions():
+# Upload Arena Batch Files (Allow multiple files)
+    st.write("Arena Batch Files Upload")
+    uploaded_arena_files = st.file_uploader("Choose Arena batch files", type="xlsx", accept_multiple_files=True)
+    # Process the uploaded Arena files
+    if st.button("Import Arena Batches"):
+        if uploaded_arena_files:
+            # Call the process_contrib_arena to handle the file processing and combine the files
+            combined_arena_data = arena_merge(uploaded_arena_files)
+            print("Combined Arena Data")
+            #print(combined_arena_data.dtypes)
+
+            # Store the combined Arena data in session state
+            st.session_state.arena_data = combined_arena_data
+            st.success("Arena batches processed and combined successfully")
+
+            if combined_arena_data is not None and not combined_arena_data.empty:
+                output = arena_excel(combined_arena_data)
+
+                st.download_button(
+                    label="Download Merged Arena Data",
+                    data=output,
+                    file_name="merged_arena_batches.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            else:
+                st.error("No valid data to write to Excel.")
+        else:
+            st.error("Please upload at least one Arena batch.")
+
+
+# CONTRIBUTIONS- EASY-TITHE
+def ezt_merge(uploaded_ezt_data):
+    print("running ezt_merge")
+    ezt_data_list = []  # List to store the processed data from each file
+    
+    # Iterate through each file in the uploaded files
+    for idx, ezt_file in enumerate(uploaded_ezt_data):        
+        raw_contrib_ezt = pd.read_excel(ezt_file, sheet_name=0, header=0) # Read in the EZT data & headers
+        ezt_data_list.append(raw_contrib_ezt) # Append the processed data to the list
+        if idx == 0: # If it's the first file, initialize the combined dataframe
+            combined_ezt_data = raw_contrib_ezt 
+        else: # If it's not the first file, append it to the combined dataframe
+            combined_ezt_data = pd.concat([combined_ezt_data, raw_contrib_ezt], ignore_index=True)
+    return combined_ezt_data
+
+def ezt_excel(combined_ezt_data):
+    # Save to a temporary Excel file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+        with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
+            combined_ezt_data.to_excel(writer, index=False)
+
+        # Open workbook to apply formatting
+        wb = load_workbook(tmp.name)
+        ws = wb.active
+
+        # Get the header row (row 1)
+        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+
+        for row in ws.iter_rows(min_row=2):  # start from second row to skip header
+            for i, header in enumerate(headers):
+                cell = row[i]
+                header_lower = str(header).lower().strip()
+                if header_lower == "gross gift":
+                    cell.number_format = '"$"#,##0.00'
+                elif header_lower == "date":
+                    cell.number_format = 'mm/dd/yy'
+                else:
+                    cell.number_format = 'General'
+
+        wb.save(tmp.name)
+
+        # Stream it into memory for download
+        output = io.BytesIO()
+        with open(tmp.name, "rb") as f:
+            output.write(f.read())
+        output.seek(0)
+
+    return output
+
+def runEZTContributions():
+    # Upload the EZT batch file
+    st.write("EasyTithe Batch File Upload")
+    uploaded_ezt_files = st.file_uploader("Choose EasyTithe batch files", type="xlsx", accept_multiple_files=True)
+    # Run the script when the button is clicked for EZT file
+    if st.button("Import EasyTithe Batch"):
+        if uploaded_ezt_files:
+            # Call the ezt_contributions to handle the file processing and combine the files
+            combined_ezt_data = ezt_merge(uploaded_ezt_files)
+            print("Combined EZT data")
+
+            # Store the combined EZT data in session state
+            st.session_state.ezt_data = combined_ezt_data 
+            st.success("EasyTithe batches processed and combined successfully")
+        
+            if combined_ezt_data is not None and not combined_ezt_data.empty:
+                output = ezt_excel(combined_ezt_data)
+                st.download_button(
+                    label="Download Merged EZT Data",
+                    data=output,
+                    file_name="merged_EZT_batches.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            else:
+                st.error("No valid data to write to Excel.")
+        else:
+            st.error("Please upload at least one EasyTithe batch.")
+
+
+# CONTRIBUTIONS - MATCHING
+def match_contributions(arena_data, ezt_data):
     # Assuming the two dataframes have some common columns (e.g., "Family Id" or "Person ID")
     
     # Here we simply merge the two datasets on a common column
@@ -583,81 +712,33 @@ def combine_contributions(arena_data, ezt_data):
     # You can add any logic to clean the data or adjust the structure if needed
 
     return combined_data
+def runMatchContributions():
+    # Combine the two files if both are uploaded
+    if 'arena_data' in st.session_state and 'ezt_data' in st.session_state:
+        if st.button("Match Contributions"):
+            combined_contrib_data = match_contributions(st.session_state.arena_data, st.session_state.ezt_data)
+            # Provide download button for the combined file
+            st.download_button(
+                label="Download Matched Contributions",
+                data=combined_contrib_data.to_csv(index=False).encode(),  # Converting to CSV format
+                file_name="combined_contribution_report.csv",
+                mime="text/csv"
+            )
 
-# Function to run contribution methods  
+# Function to run all contribution methods  
 def runContributions():
     print("running runContributions")
     st.header("Contribution Reports Processing")
 
     # Upload Arena Batch Files (Allow multiple files)
-    st.write("Arena Batch Files Upload")
-    uploaded_arena_files = st.file_uploader("Choose Arena batch files", type="xlsx", accept_multiple_files=True)
-    # Process the uploaded Arena files
-    if st.button("Import Arena Batches"):
-        if uploaded_arena_files:
-            # Call the process_contrib_arena to handle the file processing and combine the files
-            combined_arena_data = arena_contributions(uploaded_arena_files)
-            st.write("Combined Arena Data", combined_arena_data)
-            print("Combined Arena Data")
+    runArenaContributions()
+    # Upload EZT batch file
+    runEZTContributions()
+    # Match the Contributions
+    runMatchContributions()
 
-            # Store the combined Arena data in session state
-            st.session_state.arena_data = combined_arena_data
-            st.success("Arena batches processed and combined successfully")
+    print("contribution processing complete")
 
-            # Use a BytesIO stream for writing the Excel file in memory
-            output = io.BytesIO()
-            if combined_arena_data is not None and not combined_arena_data.empty:
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    combined_arena_data.to_excel(writer, index=False)
-            else:
-                st.error("No valid data to write to Excel.")
-                return
-
-            # with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            #     combined_arena_data.to_excel(writer, index=False)
-            #     writer.save()
-
-            output.seek(0)  # Go to the beginning of the in-memory file
-
-            # Provide download button for the merged Arena data (Excel file)
-            st.download_button(
-                label="Download Merged Arena Data",
-                data=output,
-                file_name="merged_arena_batches.xlsx",  # Excel file
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"  # Correct MIME type for Excel files
-            )
-
-        else:
-            st.error("Please upload at least one Arena batch.")
-
-    # # Upload the EZT batch file
-    # st.write("EasyTithe Batch File Upload")
-    # uploaded_ezt_file = st.file_uploader("Choose an EasyTithe batch file", type="xlsx")
-    # # Run the script when the button is clicked for EZT file
-    # if st.button("Import EasyTithe Batch"):
-    #     if uploaded_ezt_file is not None:
-    #         # Process the EZT batch data
-    #         ezt_data = ezt_contributions(uploaded_ezt_file)
-    #         st.session_state.ezt_data = ezt_data  # Save the EZT data in session state
-    #         st.success("EasyTithe batch processed")
-    #     else:
-    #         st.error("Please upload an EasyTithe batch.")
-
-    # # Combine the two files if both are uploaded
-    # if 'arena_data' in st.session_state and 'ezt_data' in st.session_state:
-    #     if st.button("Match Contributions"):
-    #         combined_contrib_data = combine_contributions(st.session_state.arena_data, st.session_state.ezt_data)
-    #         # Provide download button for the combined file
-    #         st.download_button(
-    #             label="Download Matched Contributions",
-    #             data=combined_contrib_data.to_csv(index=False).encode(),  # Converting to CSV format
-    #             file_name="combined_contribution_report.csv",
-    #             mime="text/csv"
-    #         )
-
-# def runArenaContributions()
-# def runEZTContributions()
-# def runMatchContributions()
 
 # STREAMLIT METHODS
 # Function to authenticate user
