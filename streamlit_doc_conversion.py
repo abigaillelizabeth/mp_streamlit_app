@@ -8,6 +8,7 @@ from openpyxl import load_workbook
 from openpyxl.styles import numbers
 import tempfile
 import io
+import zipfile
 
 
 # ARENA METHODS  
@@ -462,6 +463,9 @@ def arena_master_included(uploaded_arena_files):
     for uploaded_arena_file in uploaded_arena_files:
         # Read in the Arena data with no header
         #raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None, engine="openpyxl")
+        if not zipfile.is_zipfile(uploaded_arena_file):
+            st.error(f"{uploaded_arena_file.name} is not a valid Excel (.xlsx) file. Please re-save it from Excel.")
+            continue
         try:
             raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None, engine="openpyxl")
         except Exception as e:
@@ -474,8 +478,6 @@ def arena_master_included(uploaded_arena_files):
             # Master file logic
             print(f"Master file found: {uploaded_arena_file.name}")
             master_file_found = True
-
-            #print(uploaded_arena_file.colnames)
 
             # Use only the first row as the header
             raw_contrib_arena.columns = raw_contrib_arena.iloc[0]
@@ -551,6 +553,13 @@ def arena_merge(uploaded_arena_files):
     
     # Iterate through each file in the uploaded files
     for arena_file in uploaded_arena_files:
+
+        print(f"filename: {arena_file.name}")
+        print(f"type: {type(arena_file)}")
+        arena_file.seek(0)
+        print(f"first 10 bytes: {arena_file.read(10)}")
+        arena_file.seek(0)  # reset after peeking
+
         file_name = arena_file.name.split('.')[0]  # Remove file extension to check the name length
         if len(file_name) != 5 or not file_name.isdigit():  # Check if the length is not 5 or it's not numeric
             all_five_digits = False
