@@ -461,7 +461,13 @@ def arena_master_included(uploaded_arena_files):
     # Process each uploaded Arena file
     for uploaded_arena_file in uploaded_arena_files:
         # Read in the Arena data with no header
-        raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
+        #raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None, engine="openpyxl")
+        try:
+            raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None, engine="openpyxl")
+        except Exception as e:
+            print(f"Failed to read {uploaded_arena_file.name}: {e}")
+            st.error("There was a problem reading the Arena file. Please check the file format and try again.")
+            continue
 
         # Check if the file name has more than 5 characters (indicating it's a master file)
         if len(uploaded_arena_file.name.split('.')[0]) > 5:
@@ -502,7 +508,7 @@ def arena_all_new(uploaded_arena_files):
 
     for idx, uploaded_arena_file in enumerate(uploaded_arena_files):
         # Read in the Arena data with no header
-        raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
+        raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None, engine="openpyxl")
 
         # Call the arena_col_names function to adjust the column headers
         raw_contrib_arena = arena_col_names(raw_contrib_arena)
