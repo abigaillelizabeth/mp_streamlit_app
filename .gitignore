@@ -7,4 +7,5 @@ PR Journal Entry_03.25.2025-1.xlsx
 
 # Ignoring all .xlsx example files
 *.xlsx
+*.csv
 

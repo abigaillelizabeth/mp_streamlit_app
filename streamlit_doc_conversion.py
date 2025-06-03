@@ -562,7 +562,7 @@ def arena_excel(combined_arena_data):
     # Save to a temporary Excel file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
-            combined_arena_data.to_excel(writer, index=False)
+            combined_arena_data.to_excel(writer, index=False, sheet_name="Arena Contributions")
 
         # Open workbook to apply formatting
         wb = load_workbook(tmp.name)
@@ -593,8 +593,8 @@ def arena_excel(combined_arena_data):
     return output
 
 def runArenaContributions():
-# Upload Arena Batch Files (Allow multiple files)
     st.write("Arena Batch Files Upload")
+    # Upload Arena Batch Files (Allow multiple files)
     uploaded_arena_files = st.file_uploader("Choose Arena batch files", type="xlsx", accept_multiple_files=True)
     # Process the uploaded Arena files
     if st.button("Import Arena Batches"):
@@ -629,9 +629,19 @@ def ezt_merge(uploaded_ezt_data):
     ezt_data_list = []  # List to store the processed data from each file
     
     # Iterate through each file in the uploaded files
-    for idx, ezt_file in enumerate(uploaded_ezt_data):        
-        raw_contrib_ezt = pd.read_excel(ezt_file, sheet_name=0, header=0) # Read in the EZT data & headers
+    for idx, ezt_file in enumerate(uploaded_ezt_data): 
+
+        filename = ezt_file.name.lower()
+        if filename.endswith('.csv'):
+            raw_contrib_ezt = pd.read_csv(ezt_file)
+        elif filename.endswith('.xlsx'):
+            raw_contrib_ezt = pd.read_excel(ezt_file, sheet_name=0, header=0)
+        else:
+            continue  # Skip unsupported formats
+
+        raw_contrib_ezt = raw_contrib_ezt[raw_contrib_ezt["Date"].notna()] #  Remove summary rows
         ezt_data_list.append(raw_contrib_ezt) # Append the processed data to the list
+
         if idx == 0: # If it's the first file, initialize the combined dataframe
             combined_ezt_data = raw_contrib_ezt 
         else: # If it's not the first file, append it to the combined dataframe
@@ -642,7 +652,7 @@ def ezt_excel(combined_ezt_data):
     # Save to a temporary Excel file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
-            combined_ezt_data.to_excel(writer, index=False)
+            combined_ezt_data.to_excel(writer, index=False, sheet_name="EZT Contributions")
 
         # Open workbook to apply formatting
         wb = load_workbook(tmp.name)
@@ -673,10 +683,14 @@ def ezt_excel(combined_ezt_data):
     return output
 
 def runEZTContributions():
-    # Upload the EZT batch file
     st.write("EasyTithe Batch File Upload")
-    uploaded_ezt_files = st.file_uploader("Choose EasyTithe batch files", type="xlsx", accept_multiple_files=True)
-    # Run the script when the button is clicked for EZT file
+    # Upload the EZT batch file
+    uploaded_ezt_files = st.file_uploader(
+        "Choose EasyTithe batch files",
+        type=["xlsx", "csv"],
+        accept_multiple_files=True
+    )
+    #Run the script when the button is clicked for EZT file
     if st.button("Import EasyTithe Batch"):
         if uploaded_ezt_files:
             # Call the ezt_contributions to handle the file processing and combine the files
@@ -755,16 +769,16 @@ def call_methods():
     st.write("You are successfully logged in.")
     st.title("File Import & Conversion App")
     file_type = st.radio("Select the file type you want to convert:", 
-                         ['Arena Mailing List', 'Payroll Workbook', 'Cigna Download', 'Contribution Reports'])
+                         ['Contribution Reports', 'Arena Mailing List', 'Payroll Workbook', 'Cigna Download'])
     # Run the correct set of methods based on user-selected file type
-    if file_type == 'Arena Mailing List':
-        runArenaMain()
+    if file_type == 'Contribution Reports':
+        runContributions()
     elif file_type == 'Payroll Workbook':
         runPayroll()
     elif file_type == 'Cigna Download':
         runCigna()
-    elif file_type == 'Contribution Reports':
-        runContributions()
+    elif file_type == 'Arena Mailing List':
+        runArenaMain()
 
 # Function to set streamlit logic 
 def run_gui():
