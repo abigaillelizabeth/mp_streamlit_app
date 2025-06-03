@@ -460,8 +460,16 @@ def arena_master_included(uploaded_arena_files):
 
     # Process each uploaded Arena file
     for uploaded_arena_file in uploaded_arena_files:
-        # Read in the Arena data with no header
-        raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
+        # Read in the EZT data based on type
+        filename = uploaded_arena_file.name.lower()
+
+        if filename.endswith('.csv'):
+            raw_contrib_arena = pd.read_csv(uploaded_arena_file)
+        elif filename.endswith('.xlsx'):
+            raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
+        else:
+            st.warning(f"Unsupported file type: {uploaded_arena_file.name}")
+            continue
 
         # Check if the file name has more than 5 characters (indicating it's a master file)
         if len(uploaded_arena_file.name.split('.')[0]) > 5:
@@ -501,8 +509,17 @@ def arena_all_new(uploaded_arena_files):
     arena_data_list = []  # List to store the processed data from each file
 
     for idx, uploaded_arena_file in enumerate(uploaded_arena_files):
-        # Read in the Arena data with no header
-        raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
+        filename = uploaded_arena_file.name.lower()
+        # Read in the Arena data based on type
+        if filename.endswith('.csv'):
+            raw_contrib_arena = pd.read_csv(uploaded_arena_file)
+        elif filename.endswith('.xlsx'):
+            raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
+        else:
+            st.warning(f"Unsupported file type: {uploaded_arena_file.name}")
+            continue
+
+        #raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
 
         # Call the arena_col_names function to adjust the column headers
         raw_contrib_arena = arena_col_names(raw_contrib_arena)
@@ -552,9 +569,9 @@ def arena_merge(uploaded_arena_files):
     
     # Call appropriate function based on the file name length
     if all_five_digits:
-        combined_arena_data = arena_all_new(arena_file)
+        combined_arena_data = arena_all_new(uploaded_arena_files)
     else:
-        combined_arena_data = arena_master_included(arena_file)
+        combined_arena_data = arena_master_included(uploaded_arena_files)
 
     return combined_arena_data
 
@@ -630,7 +647,7 @@ def ezt_merge(uploaded_ezt_data):
     
     # Iterate through each file in the uploaded files
     for idx, ezt_file in enumerate(uploaded_ezt_data): 
-
+        # Readin the EZT data based on type
         filename = ezt_file.name.lower()
         if filename.endswith('.csv'):
             raw_contrib_ezt = pd.read_csv(ezt_file)
