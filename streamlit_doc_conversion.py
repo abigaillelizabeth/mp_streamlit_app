@@ -5,7 +5,10 @@ import pandas as pd
 import numpy as np
 import csv
 from openpyxl import load_workbook
+from openpyxl import Workbook
 from openpyxl.styles import numbers
+from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.styles import Font
 import tempfile
 import io
 import zipfile
@@ -411,9 +414,7 @@ def mainCig(uploaded_file):
 
     # Print & save the output as needed
     print("File created successfully. Ready for download.")
-    #print(cig_final)
-    #output_content = cig_final.getvalue()
-    #print(output_content)  # This will print the file content to the terminal
+
 
     return cig_final
 # Function to run cigna methods  
@@ -645,7 +646,6 @@ def runArenaContributions():
         else:
             st.error("Please upload at least one Arena batch.")
 
-
 # CONTRIBUTIONS- EASY-TITHE
 def ezt_merge(uploaded_ezt_data):
     print("running ezt_merge")
@@ -738,7 +738,114 @@ def runEZTContributions():
             st.error("Please upload at least one EasyTithe batch.")
 
 
-# CONTRIBUTIONS - MATCHING
+# CONTRIBUTIONS- MATCHING BY ID
+def reorder_merged_columns(merged, arena_df, ezt_df):
+    arena_cols = list(arena_df.columns)
+    ezt_cols = list(ezt_df.columns)
+
+    arena_id_cols = ["Arena Transaction ID", "Arena Batch #"]
+    ezt_id_cols = ["EZT Transaction ID", "EZT Batch ID"]
+
+    arena_other_cols = [col for col in arena_cols if col not in ["Transaction Detail", "Batch #"]]
+    ezt_other_cols = [col for col in ezt_cols if col not in ["Transaction Number", "Batch ID"]]
+
+    arena_other_cols = [col for col in arena_other_cols if col not in arena_id_cols]
+    ezt_other_cols = [col for col in ezt_other_cols if col not in ezt_id_cols]
+
+    final_order = arena_id_cols + arena_other_cols + ezt_id_cols + ezt_other_cols
+    return [col for col in final_order if col in merged.columns]
+
+def matching_logic(arena_df, ezt_df):
+    # Make copies to avoid changing original data
+    arena_df = arena_df.copy()
+    ezt_df = ezt_df.copy()
+
+    # Rename key columns for clarity
+    arena_df = arena_df.rename(columns={
+        "Transaction Detail": "Arena Transaction ID",
+        "Batch #": "Arena Batch #"
+    })
+    ezt_df = ezt_df.rename(columns={
+        "Transaction Number": "EZT Transaction ID",
+        "Batch ID": "EZT Batch ID"
+    })
+
+    # Merge on transaction ID with indicator
+    merged = pd.merge(
+        arena_df,
+        ezt_df,
+        left_on="Arena Transaction ID",
+        right_on="EZT Transaction ID",
+        how="outer",
+        indicator=True
+    )
+
+    # Extract match categories
+    match_by_transaction_id = merged[merged["_merge"] == "both"].copy()
+    arena_only = merged[merged["_merge"] == "left_only"].copy()
+    ezt_only = merged[merged["_merge"] == "right_only"].copy()
+
+    # Add Match Type Indicator Column
+    match_by_transaction_id["Match Type"] = "Matched by Transaction ID"
+    arena_only["Match Type"] = "Unmatched (Arena only)"
+    ezt_only["Match Type"] = "Unmatched (EZT only)"
+
+    # Drop the merge indicator before output
+    for df in [match_by_transaction_id, arena_only, ezt_only]:
+        df.drop(columns=["_merge"], inplace=True)
+
+    # Apply consistent column order
+    ordered_cols = reorder_merged_columns(merged, arena_df, ezt_df) + ["Match Type"]
+    match_by_transaction_id = match_by_transaction_id[ordered_cols]
+    arena_only = arena_only[ordered_cols]
+    ezt_only = ezt_only[ordered_cols]
+
+    # Build categorized Excel with labeled sections
+    # return categorized_matches(
+    #     match_by_id_df=match_by_transaction_id,
+    #     match_by_donor_df=pd.DataFrame(),  # Placeholder for future donor matching
+    #     unmatched_df=pd.concat([arena_only, ezt_only], ignore_index=True)
+    # )
+    return match_by_transaction_id, pd.DataFrame(), pd.concat([arena_only, ezt_only], ignore_index=True)
+
+def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Matched Contributions"
+        
+    def write_section(header, df, start_row):
+        # Write title row, bold, only col A populated
+        for col in range(1, ws.max_column + 1 or len(df.columns) + 1):
+            cell = ws.cell(row=start_row, column=col)
+            if col == 1:
+                cell.value = header
+            else:
+                cell.value = ""
+            cell.font = Font(bold=True)
+
+        # Write DataFrame, bold header row
+        for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=start_row + 1):
+            for c_idx, value in enumerate(row, start=1):
+                cell = ws.cell(row=r_idx, column=c_idx, value=value)
+                #if r_idx == start_row + 1:
+                #   cell.font = Font(bold=True)
+
+        return r_idx + 2  # Advance cursor
+
+    row_cursor = 1
+    row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
+    if not match_by_donor_df.empty:
+        row_cursor = write_section("Matched by Donor Info", match_by_donor_df, row_cursor)
+    row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
+
+    wb.save(tmp.name)
+    with open(tmp.name, "rb") as f:
+        final_output = f.read()
+
+    return final_output
+
+# CONTRIBUTIONS - EXPORTING
 def export_combined_excel(arena_df, ezt_df):
     # Format and return as .xlsx binary output
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
@@ -778,136 +885,57 @@ def export_combined_excel(arena_df, ezt_df):
 
     return output
 
-def match_data_logic(arena_df, ezt_df):
-    # Make copies to avoid changing original data
-    arena_df = arena_df.copy()
-    ezt_df = ezt_df.copy()
-
-    # Rename transaction columns for clarity
-    arena_df = arena_df.rename(columns={
-        "Transaction Detail": "Transaction ID Arena",
-        "Batch #": "Arena Batch #"
-    })
-    ezt_df = ezt_df.rename(columns={
-        "Transaction Number": "Transaction ID EZT",
-        "Batch ID": "EZT Batch ID"
-    })
-
-    # Merge on transaction IDs with an indicator to track match status
-    merged = pd.merge(
-        arena_df,
-        ezt_df,
-        left_on="Transaction ID Arena",
-        right_on="Transaction ID EZT",
-        how="outer",
-        indicator=True
-    )
-
-    # Reorder: transaction IDs first, then everything else
-    transaction_cols = ["Transaction ID Arena", "Transaction ID EZT", "Arena Batch #", "EZT Batch ID"]
-    other_cols = [col for col in merged.columns if col not in transaction_cols + ["_merge"]]
-    merged = merged[transaction_cols + other_cols + ["_merge"]]
-
-    # Sort rows: matched first, then arena-only, then ezt-only
-    matched = merged[merged["_merge"] == "both"]
-    arena_only = merged[merged["_merge"] == "left_only"]
-    ezt_only = merged[merged["_merge"] == "right_only"]
-
-    # Combine all into one DataFrame
-    final_df = pd.concat([matched, arena_only, ezt_only], ignore_index=True).drop(columns=["_merge"])
-
-    return final_df
-
 def export_matched_excel(arena_df, ezt_df):
-    # Merge the datasets
-    merged_df = match_data_logic(arena_df, ezt_df)
-
-    # Save to a temporary Excel file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-        with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
-            merged_df.to_excel(writer, index=False, sheet_name="Matched Contributions")
-
-        # Open workbook to apply formatting
-        wb = load_workbook(tmp.name)
-        ws = wb.active
-
-        # Get the header row
-        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
-
-        # Format specific columns
-        for row in ws.iter_rows(min_row=2):
-            for i, header in enumerate(headers):
-                cell = row[i]
-                header_lower = str(header).lower().strip()
-
-                if "amount" in header_lower or "gift" in header_lower:
-                    cell.number_format = '"$"#,##0.00'
-                elif "date" in header_lower:
-                    cell.number_format = 'mm/dd/yy'
-                else:
-                    cell.number_format = 'General'
-
-        wb.save(tmp.name)
-
-        # Stream to memory
-        output = io.BytesIO()
-        with open(tmp.name, "rb") as f:
-            output.write(f.read())
-        output.seek(0)
-
-    return output
+    match_by_id_df, match_by_donor_df, unmatched_df = matching_logic(arena_df, ezt_df)
+    return categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df)
 
 def export_full_report(arena_df, ezt_df):
-    matched_df = match_data_logic(arena_df, ezt_df)
-
+    match_by_id_df, match_by_donor_df, unmatched_df = matching_logic(arena_df, ezt_df)
+    
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
-            matched_df.to_excel(writer, index=False, sheet_name="Matched Contributions")
+            categorized_df = categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df)
+            pd.read_excel(io.BytesIO(categorized_df)).to_excel(writer, sheet_name="Matched Contributions", index=False)
             arena_df.to_excel(writer, index=False, sheet_name="Arena Contributions")
             ezt_df.to_excel(writer, index=False, sheet_name="EZT Contributions")
 
-        wb = load_workbook(tmp.name)
-        wb.save(tmp.name)
-
-        output = io.BytesIO()
         with open(tmp.name, "rb") as f:
-            output.write(f.read())
-        output.seek(0)
-
+            output = io.BytesIO(f.read())
+    output.seek(0)
     return output
 
-def runMatchContributions():
+def runMatchingFunctions():
     # set session state booleans for reference
     arena_ready = 'arena_data' in st.session_state
     ezt_ready = 'ezt_data' in st.session_state
 
     if arena_ready and ezt_ready:
-        st.header("Contribution Report Download Options")
-        st.write("Choose how you'd like to export the contribution data:")
+        st.header("Contribution Report Download")
+        # st.write("Choose how you'd like to export the contribution data:")
 
-        # Button 1 — Merged .xlsx workbook - 2 sheets
-        merged_excel = export_combined_excel(
-            st.session_state.arena_data,
-            st.session_state.ezt_data
-        )
-        st.download_button(
-            label="Combined Arena & EZT Batches (.xlsx)",
-            data=merged_excel,
-            file_name="merged_contributions.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        # # Button 1 — Merged .xlsx workbook - 2 sheets
+        # merged_excel = export_combined_excel(
+        #     st.session_state.arena_data,
+        #     st.session_state.ezt_data
+        # )
+        # st.download_button(
+        #     label="Combined Arena & EZT Batches (.xlsx)",
+        #     data=merged_excel,
+        #     file_name="merged_contributions.xlsx",
+        #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        # )
 
-        # Button 2 — Matched CSV file
-        matched_excel = export_matched_excel(
-            st.session_state.arena_data,
-            st.session_state.ezt_data
-        )
-        st.download_button(
-            label="Matched Sheet Only (.xlsx)",
-            data=matched_excel,
-            file_name="matched_contributions.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        # # Button 2 — Matched CSV file
+        # matched_excel = export_matched_excel(
+        #     st.session_state.arena_data,
+        #     st.session_state.ezt_data
+        # )
+        # st.download_button(
+        #     label="Matched Sheet Only (.xlsx)",
+        #     data=matched_excel,
+        #     file_name="matched_contributions.xlsx",
+        #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        # )
 
         # Button 3 — Matched AND Merged Infomation - 3 sheets
         master_excel = export_full_report( #TODO: change method
@@ -925,21 +953,173 @@ def runMatchContributions():
         st.info("Upload both Arena and EZT files to access combined export options.")
 
 
+# def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df):
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+#         # Start a writer
+#         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
+#             # Create empty DataFrame just to initialize the sheet
+#             pd.DataFrame().to_excel(writer, sheet_name="Matched Contributions", index=False)
+
+#         # Open with openpyxl
+#         wb = load_workbook(tmp.name)
+#         ws = wb["Matched Contributions"]
+
+#         def write_section(header, df, start_row):
+#             ws.cell(row=start_row, column=1, value=header).font = Font(bold=True)
+#             for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=start_row + 1):
+#                 for c_idx, value in enumerate(row, start=1):
+#                     ws.cell(row=r_idx, column=c_idx, value=value)
+#             return r_idx + 2  # Add spacing
+
+#         row_cursor = 1
+#         row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
+#         row_cursor = write_section("Matched by Donor Info", match_by_donor_df, row_cursor)
+#         row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
+
+#         wb.save(tmp.name)
+
+#         # Load back into memory
+#         with open(tmp.name, "rb") as f:
+#             final_output = f.read()
+
+#     return final_output
+
+# def match_data_logic(arena_df, ezt_df):
+#     # Make copies to avoid changing original data
+#     arena_df = arena_df.copy()
+#     ezt_df = ezt_df.copy()
+
+#     # Rename transaction columns for clarity
+#     arena_df = arena_df.rename(columns={
+#         "Transaction Detail": "Arena Transaction ID",
+#         "Batch #": "Arena Batch #"
+#     })
+#     ezt_df = ezt_df.rename(columns={
+#         "Transaction Number": "EZT Transaction ID",
+#         "Batch ID": "EZT Batch ID"
+#     })
+
+#     # Merge on transaction IDs with an indicator to track match status
+#     merged = pd.merge(
+#         arena_df,
+#         ezt_df,
+#         left_on="Arena Transaction ID",
+#         right_on="EZT Transaction ID",
+#         how="outer",
+#         indicator=True
+#     )
+
+#     # Reorder: transaction IDs first, then everything else
+#     arena_id_cols = ["Arena Transaction ID",  "Arena Batch #"]
+#     arena_other_cols = [col for col in arena_df.columns if col not in arena_id_cols + ["_merge"]]
+#     ezt_id_cols = ["EZT Transaction ID", "EZT Batch ID"]
+#     ezt_other_cols = [col for col in ezt_df.columns if col not in ezt_id_cols + ["_merge"]]
+#     merged = merged[arena_id_cols + arena_other_cols + ezt_id_cols + ezt_other_cols + ["_merge"]]
+    
+
+#     # Sort rows: matched first, then arena-only, then ezt-only
+#     # matched = merged[merged["_merge"] == "both"]
+#     # arena_only = merged[merged["_merge"] == "left_only"]
+#     # ezt_only = merged[merged["_merge"] == "right_only"]
+
+#     # Combine all into one DataFrame
+#     # final_df = pd.concat([matched, ezt_only, arena_only], ignore_index=True).drop(columns=["_merge"])
+
+
+#     # Sorting for categorization
+#     match_by_transaction_id = merged[merged["_merge"] == "both"].copy()
+#     arena_only = merged[merged["_merge"] == "left_only"].copy()
+#     ezt_only = merged[merged["_merge"] == "right_only"].copy()
+
+#     # Adding the Matched column
+#     match_by_transaction_id["Match Type"] = "Matched by Transaction ID"
+#     arena_only["Match Type"] = "Unmatched (Arena only)"
+#     ezt_only["Match Type"] = "Unmatched (EZT only)"
+
+#     for df in [match_by_transaction_id, arena_only, ezt_only]:
+#         df.drop(columns=["_merge"], inplace=True)
+    
+#     final_df = categorized_matches(
+#         match_by_id_df=match_by_transaction_id,
+#         match_by_donor_df=pd.DataFrame(),  # Placeholder until we build donor match
+#         unmatched_df=pd.concat([arena_only, ezt_only], ignore_index=True)
+# )
+#     return final_df
+
+# def export_matched_excel(arena_df, ezt_df):
+#     # Merge the datasets
+#     merged_df = match_data_logic(arena_df, ezt_df)
+
+#     # Save to a temporary Excel file
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+#         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
+#             merged_df.to_excel(writer, index=False, sheet_name="Matched Contributions")
+
+#         # Open workbook to apply formatting
+#         wb = load_workbook(tmp.name)
+#         ws = wb.active
+
+#         # Get the header row
+#         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+
+#         # Format specific columns
+#         for row in ws.iter_rows(min_row=2):
+#             for i, header in enumerate(headers):
+#                 cell = row[i]
+#                 header_lower = str(header).lower().strip()
+
+#                 if "amount" in header_lower or "gift" in header_lower:
+#                     cell.number_format = '"$"#,##0.00'
+#                 elif "date" in header_lower:
+#                     cell.number_format = 'mm/dd/yy'
+#                 else:
+#                     cell.number_format = 'General'
+
+#         wb.save(tmp.name)
+
+#         # Stream to memory
+#         output = io.BytesIO()
+#         with open(tmp.name, "rb") as f:
+#             output.write(f.read())
+#         output.seek(0)
+
+#     return output
+
+# def export_full_report(arena_df, ezt_df):
+#     matched_df = match_data_logic(arena_df, ezt_df)
+
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+#         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
+#             matched_df.to_excel(writer, index=False, sheet_name="Matched Contributions")
+#             arena_df.to_excel(writer, index=False, sheet_name="Arena Contributions")
+#             ezt_df.to_excel(writer, index=False, sheet_name="EZT Contributions")
+
+#         wb = load_workbook(tmp.name)
+#         wb.save(tmp.name)
+
+#         output = io.BytesIO()
+#         with open(tmp.name, "rb") as f:
+#             output.write(f.read())
+#         output.seek(0)
+
+#     return output
+
+
 # Function to run all contribution methods  
 def runContributions():
-    print("running runContributions")
+    #print("running runContributions")
     st.header("Contribution Reports Processing")
     # Upload Arena Batch Files (Allow multiple files)
     runArenaContributions()
     # Upload EZT batch file
     runEZTContributions()
     # Match the Contributions
-    runMatchContributions()
-    print("contribution processing complete")
+    runMatchingFunctions()
+    #print("contribution processing complete")
 
 
 # STREAMLIT METHODS
-# Function to authenticate user
+# Authenticate user
 def authenticate(username, password):
     # Loop through the credentials to match the username and password
     for user in st.secrets["credentials"]["user"]:
@@ -947,7 +1127,7 @@ def authenticate(username, password):
             return True  # Successful authentication
     return False  # Failed authentication
 
-# Function to call and implement the file methods
+# Call and implement the file methods
 def call_methods():
     # When the user is logged in, show the rest of the app
     st.write("You are successfully logged in.")
@@ -964,7 +1144,7 @@ def call_methods():
     elif file_type == 'Arena Mailing List':
         runArenaMain()
 
-# Function to set streamlit logic 
+# Set streamlit logic 
 def run_gui():
     # Set up session state to track login status
     if "logged_in" not in st.session_state:
@@ -1003,7 +1183,7 @@ def run_gui():
 
 # Streamit WITHOUT AUTH
 if __name__ == "__main__":
-    print("running streamlit app")
+    #print("running streamlit app")
     call_methods()
     
 # Streamit WITH AUTH
