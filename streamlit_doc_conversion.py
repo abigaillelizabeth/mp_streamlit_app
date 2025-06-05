@@ -10,6 +10,7 @@ from openpyxl.styles import numbers
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Font
 import tempfile
+import datetime
 import io
 import os
 import zipfile
@@ -585,6 +586,7 @@ def arena_merge(uploaded_arena_files):
 
 def arena_excel(combined_arena_data):
     combined_arena_data["Contribution Date"] = pd.to_datetime(combined_arena_data["Contribution Date"], errors="coerce")
+    print("testing this fucker STARTER")
 
     # Save to a temporary Excel file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
@@ -599,14 +601,21 @@ def arena_excel(combined_arena_data):
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
 
         for row in ws.iter_rows(min_row=2):
+            print("testing this fucker #1")
             for i, header in enumerate(headers):
+                print("testing this fucker #2")
                 cell = row[i]
                 header_lower = str(header).lower().strip()
                 if header_lower in ["amount", "contribution amount", "total"]:
+                    print("testing this fucker #3")
                     cell.number_format = '"$"#,##0.00'
-                elif "date" in header_lower:
-                    cell.number_format = 'mm/dd/yy'
+                elif "Date" in header_lower:
+                    #cell.number_format = 'mm/dd/yy'
+                    if isinstance(cell.value, datetime.datetime):  # make sure it’s not a string
+                        print("testing this fucker #4")
+                        cell.number_format = 'MM/DD/YYYY'
                 else:
+                    print("testing this fucker #5")
                     cell.number_format = 'General'
 
         wb.save(tmp.name)
@@ -941,6 +950,9 @@ def export_matched_excel(arena_df, ezt_df):
 
 def export_full_report(arena_df, ezt_df):
     match_by_id_df, match_by_donor_df, unmatched_df = matching_logic(arena_df, ezt_df)
+
+    # Format Arena data (call arena_excel)
+    # arena_excel_output = arena_excel(arena_df)
     
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
@@ -953,6 +965,54 @@ def export_full_report(arena_df, ezt_df):
             output = io.BytesIO(f.read())
     output.seek(0)
     return output
+
+# def export_full_report(arena_df, ezt_df): # CHAT CODE
+#     # Get output from arena formatting function
+#     arena_excel_output = arena_excel(arena_df)
+#     arena_wb = load_workbook(io.BytesIO(arena_excel_output))
+#     arena_ws = arena_wb.active
+
+#     # Run matching logic
+#     match_by_id_df, match_by_donor_df, unmatched_df = matching_logic(arena_df, ezt_df)
+
+#     # Start a new workbook
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+#         wb = Workbook()
+#         writer = pd.ExcelWriter(tmp.name, engine='openpyxl')
+#         writer.book = wb
+
+#         # --- Sheet 1: Matched Contributions (with section headers)
+#         matched_sheet_bytes = categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df)
+#         matched_wb = load_workbook(io.BytesIO(matched_sheet_bytes))
+#         matched_ws = matched_wb.active
+#         matched_new_ws = wb.create_sheet("Matched Contributions")
+
+#         for row in matched_ws.iter_rows(values_only=True):
+#             matched_new_ws.append(row)
+
+#         # --- Sheet 2: Arena Contributions (formatted by arena_excel)
+#         arena_new_ws = wb.create_sheet("Arena Contributions")
+#         for row in arena_ws.iter_rows(values_only=True):
+#             arena_new_ws.append(row)
+
+#         # --- Sheet 3: EZT Contributions
+#         ezt_df.to_excel(writer, index=False, sheet_name="EZT Contributions")
+
+#         # Delete default "Sheet" if still present
+#         if "Sheet" in wb.sheetnames:
+#             std = wb["Sheet"]
+#             wb.remove(std)
+
+#         # Save
+#         wb.save(tmp.name)
+
+#         # Stream back to memory
+#         output = io.BytesIO()
+#         with open(tmp.name, "rb") as f:
+#             output.write(f.read())
+#         output.seek(0)
+
+#     return output
 
 def runMatchingFunctions():
     # set session state booleans for reference
@@ -993,7 +1053,7 @@ def runMatchingFunctions():
             st.session_state.ezt_data
         )
         st.download_button(
-            label="Master Workbook (all sheets together) (.xlsx)",
+            label="Master Workbook (.xlsx)",
             data=master_excel,
             file_name="master_contributions_export.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
