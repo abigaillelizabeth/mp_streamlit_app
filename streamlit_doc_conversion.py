@@ -11,6 +11,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Font
 import tempfile
 import io
+import os
 import zipfile
 
 
@@ -451,7 +452,7 @@ def runCigna():
 
 # CONTRIBUTIONS- ARENA
 def arena_master_included(uploaded_arena_files):
-    print("running arena_master_included")
+    #print("running arena_master_included")
     arena_data_list = []  # List to store the processed data from each file
 
     # Sort the files by name (to check length and determine if master or batch file)
@@ -505,7 +506,7 @@ def arena_master_included(uploaded_arena_files):
     return combined_arena_data
 
 def arena_all_new(uploaded_arena_files):
-    print("running arena_all_new")
+    #print("running arena_all_new")
     arena_data_list = []  # List to store the processed data from each file
 
     for idx, uploaded_arena_file in enumerate(uploaded_arena_files):
@@ -541,7 +542,7 @@ def arena_all_new(uploaded_arena_files):
     return combined_arena_data
 
 def arena_col_names(raw_contrib_arena):
-    print("running arena_col_names")
+    #print("running arena_col_names")
     # Manually combine the first two rows into one header row, but only if both rows have values
     new_columns = [
         f"{col1} {col2}" if pd.notna(col1) and pd.notna(col2) else col1 if pd.notna(col1) else col2
@@ -556,7 +557,7 @@ def arena_col_names(raw_contrib_arena):
     return raw_contrib_arena
 
 def arena_merge(uploaded_arena_files):
-    print("running arena_merge")
+    #print("running arena_merge")
     # Check if all files have a 5-digit name (without the file extension)
     all_five_digits = True
     
@@ -583,6 +584,8 @@ def arena_merge(uploaded_arena_files):
     return combined_arena_data
 
 def arena_excel(combined_arena_data):
+    combined_arena_data["Contribution Date"] = pd.to_datetime(combined_arena_data["Contribution Date"], errors="coerce")
+
     # Save to a temporary Excel file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
@@ -769,6 +772,10 @@ def matching_logic(arena_df, ezt_df):
         "Transaction Number": "EZT Transaction ID",
         "Batch ID": "EZT Batch ID"
     })
+    
+    #print("ARENA COLUMNS:", arena_df.columns.tolist())
+    #print("EZT COLUMNS:", ezt_df.columns.tolist())
+
 
     # Merge on transaction ID with indicator
     merged = pd.merge(
@@ -808,43 +815,86 @@ def matching_logic(arena_df, ezt_df):
     # )
     return match_by_transaction_id, pd.DataFrame(), pd.concat([arena_only, ezt_only], ignore_index=True)
 
+# def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df):
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+#         wb = Workbook()
+#         ws = wb.active
+#         ws.title = "Matched Contributions"
+        
+#     def write_section(header, df, start_row):
+#         # Write title row, bold, only col A populated
+#         for col in range(1, ws.max_column + 1 or len(df.columns) + 1):
+#             cell = ws.cell(row=start_row, column=col)
+#             if col == 1:
+#                 cell.value = header
+#             else:
+#                 cell.value = ""
+#             cell.font = Font(bold=True)
+
+#         # Write DataFrame, bold header row
+#         for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=start_row + 1):
+#             for c_idx, value in enumerate(row, start=1):
+#                 cell = ws.cell(row=r_idx, column=c_idx, value=value)
+#                 #if r_idx == start_row + 1:
+#                 #   cell.font = Font(bold=True)
+
+#         return r_idx + 2  # Advance cursor
+
+#     row_cursor = 1
+#     row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
+#     if not match_by_donor_df.empty:
+#         row_cursor = write_section("Matched by Donor Info", match_by_donor_df, row_cursor)
+#     row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
+
+#     wb.save(tmp.name)
+#     with open(tmp.name, "rb") as f:
+#         final_output = f.read()
+
+#     return final_output
 def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         wb = Workbook()
         ws = wb.active
         ws.title = "Matched Contributions"
         
-    def write_section(header, df, start_row):
-        # Write title row, bold, only col A populated
-        for col in range(1, ws.max_column + 1 or len(df.columns) + 1):
-            cell = ws.cell(row=start_row, column=col)
-            if col == 1:
-                cell.value = header
-            else:
-                cell.value = ""
-            cell.font = Font(bold=True)
+        def write_section(header, df, start_row):
+            # KEY FIX: Use DataFrame column count instead of ws.max_column
+            num_columns = max(len(df.columns), 1)  # Ensure at least 1 column
+            
+            # Write title row - ONLY populate column A
+            for col_idx in range(1, num_columns + 1):
+                cell = ws.cell(row=start_row, column=col_idx)
+                if col_idx == 1:
+                    cell.value = header
+                    #cell.font = Font(bold=True)
+                else:
+                    # Explicitly clear other cells in header row
+                    cell.value = None
 
-        # Write DataFrame, bold header row
-        for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=start_row + 1):
-            for c_idx, value in enumerate(row, start=1):
-                cell = ws.cell(row=r_idx, column=c_idx, value=value)
-                #if r_idx == start_row + 1:
-                #   cell.font = Font(bold=True)
+            # Write DataFrame content
+            header_row = start_row + 1
+            for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=header_row):
+                for c_idx, value in enumerate(row, start=1):
+                    cell = ws.cell(row=r_idx, column=c_idx, value=value)
+                    if r_idx == header_row:  # Bold column headers
+                        cell.font = Font(bold=True)
+            
+            return r_idx + 2  # Add blank row between sections
 
-        return r_idx + 2  # Advance cursor
+        row_cursor = 1
+        row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
+        
+        if not match_by_donor_df.empty:
+            row_cursor = write_section("Matched by Donor Info", match_by_donor_df, row_cursor)
+            
+        row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
 
-    row_cursor = 1
-    row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
-    if not match_by_donor_df.empty:
-        row_cursor = write_section("Matched by Donor Info", match_by_donor_df, row_cursor)
-    row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
-
-    wb.save(tmp.name)
-    with open(tmp.name, "rb") as f:
-        final_output = f.read()
+        wb.save(tmp.name)
+        with open(tmp.name, "rb") as f:
+            final_output = f.read()
 
     return final_output
-
+      
 # CONTRIBUTIONS - EXPORTING
 def export_combined_excel(arena_df, ezt_df):
     # Format and return as .xlsx binary output
@@ -1181,6 +1231,7 @@ def run_gui():
         # Run the application
         call_methods()
 
+
 # Streamit WITHOUT AUTH
 if __name__ == "__main__":
     #print("running streamlit app")
@@ -1190,15 +1241,41 @@ if __name__ == "__main__":
 #if __name__ == "__main__":
 #    run_gui()
 
-# # TERMINAL TESTING
+
+# #  CONTRIBUTIONS TERMINAL TESTING -- NOT RUNNING 
+# def load_multiple_excels(folder_path):
+#     combined_df = pd.DataFrame()
+#     for filename in os.listdir(folder_path):
+#         if filename.endswith(".xlsx") or filename.endswith(".xls"):
+#             file_path = os.path.join(folder_path, filename)
+#             df = pd.read_excel(file_path, header=None)  # read without headers
+#             df = parse_column_headers(df)  # apply custom header formatting
+#             combined_df = pd.concat([combined_df, df], ignore_index=True)
+#     return combined_df
+
+# def parse_column_headers(df):
+#     new_columns = df.iloc[0].fillna('') + ' ' + df.iloc[1].fillna('')
+#     df.columns = new_columns.str.strip()
+#     return df.iloc[2:].reset_index(drop=True)
+
 # if __name__ == "__main__":
-#     # PAYROLL
-#     uploaded_PR = 'PR Journal Entry_03.25.2025-1.xlsx'  # Replace with the path to your test file
-#     mainPR(uploaded_PR)
-#     # CIGNA
-#     uploaded_Cig = 'GroupPremiumStatementRpt_03.2025.xlsx'  # Replace with the path to your test file
-#     mainCig(uploaded_Cig)
-#     # ARENA 
-#     uploaded_arena = 'Arena Masterfile Tester.xlsx'  # Replace with the path to your test file
-#     mainArena(uploaded_arena)
+#     arena_data = load_multiple_excels("arena_tests")
+#     ezt_data = load_multiple_excels("ezt_tests")
+
+#     result = export_full_report(arena_data, ezt_data)
+
+#     with open("test_output.xlsx", "wb") as f:
+#         f.write(result)
+
+# # GENERAL TERMINAL TESTING
+# if __name__ == "__main__":
+    # # PAYROLL
+    # uploaded_PR = 'PR Journal Entry_03.25.2025-1.xlsx'  # Replace with the path to your test file
+    # mainPR(uploaded_PR)
+    # # CIGNA
+    # uploaded_Cig = 'GroupPremiumStatementRpt_03.2025.xlsx'  # Replace with the path to your test file
+    # mainCig(uploaded_Cig)
+    # # ARENA 
+    # uploaded_arena = 'Arena Masterfile Tester.xlsx'  # Replace with the path to your test file
+    # mainArena(uploaded_arena)
 
