@@ -586,7 +586,7 @@ def arena_merge(uploaded_arena_files):
 
 def arena_excel(combined_arena_data):
     combined_arena_data["Contribution Date"] = pd.to_datetime(combined_arena_data["Contribution Date"], errors="coerce")
-    print("testing this fucker STARTER")
+    print("testing arena formatting")
 
     # Save to a temporary Excel file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
@@ -601,21 +601,22 @@ def arena_excel(combined_arena_data):
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
 
         for row in ws.iter_rows(min_row=2):
-            print("testing this fucker #1")
+            # print("testing this fucker #1")
             for i, header in enumerate(headers):
-                print("testing this fucker #2")
+                # print("testing this fucker #2")
                 cell = row[i]
                 header_lower = str(header).lower().strip()
                 if header_lower in ["amount", "contribution amount", "total"]:
-                    print("testing this fucker #3")
+                    # print("testing this fucker #3")
                     cell.number_format = '"$"#,##0.00'
-                elif "Date" in header_lower:
-                    #cell.number_format = 'mm/dd/yy'
+                elif "date" in header_lower:
+                    cell.number_format = 'mm/dd/yy'
+                    print("testing datetime without string check")
                     if isinstance(cell.value, datetime.datetime):  # make sure it’s not a string
-                        print("testing this fucker #4")
+                        print("testing this fucker with a string check")
                         cell.number_format = 'MM/DD/YYYY'
                 else:
-                    print("testing this fucker #5")
+                    # print("testing this fucker #5")
                     cell.number_format = 'General'
 
         wb.save(tmp.name)
@@ -637,15 +638,17 @@ def runArenaContributions():
         if uploaded_arena_files:
             # Call the process_contrib_arena to handle the file processing and combine the files
             combined_arena_data = arena_merge(uploaded_arena_files)
+
             print("Combined Arena Data")
             #print(combined_arena_data.dtypes)
 
             # Store the combined Arena data in session state
             st.session_state.arena_data = combined_arena_data
+            #st.session_state.arena_file_output = combined_arena_data
             st.success("Arena batches processed and combined successfully")
 
-            # if combined_arena_data is not None and not combined_arena_data.empty:
-            #     output = arena_excel(combined_arena_data)
+            if combined_arena_data is not None and not combined_arena_data.empty:
+                output = arena_excel(combined_arena_data)
 
             #     st.download_button(
             #         label="Download Merged Arena Data",
@@ -657,6 +660,9 @@ def runArenaContributions():
             #     st.error("No valid data to write to Excel.")
         else:
             st.error("Please upload at least one Arena batch.")
+        #arena_file_output = arena_excel(combined_arena_data)
+        return 
+        
 
 # CONTRIBUTIONS- EASY-TITHE
 def ezt_merge(uploaded_ezt_data):
@@ -817,12 +823,12 @@ def matching_logic(arena_df, ezt_df):
     ezt_only = ezt_only[ordered_cols]
 
     # Build categorized Excel with labeled sections
-    # return categorized_matches(
-    #     match_by_id_df=match_by_transaction_id,
-    #     match_by_donor_df=pd.DataFrame(),  # Placeholder for future donor matching
-    #     unmatched_df=pd.concat([arena_only, ezt_only], ignore_index=True)
-    # )
-    return match_by_transaction_id, pd.DataFrame(), pd.concat([arena_only, ezt_only], ignore_index=True)
+    return categorized_matches(
+        match_by_id_df=match_by_transaction_id,
+        match_by_donor_df=pd.DataFrame(),  # Placeholder for future donor matching
+        unmatched_df=pd.concat([arena_only, ezt_only], ignore_index=True)
+    )
+    # return match_by_transaction_id, pd.DataFrame(), pd.concat([arena_only, ezt_only], ignore_index=True)
 
 # def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df):
 #     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
@@ -948,17 +954,23 @@ def export_matched_excel(arena_df, ezt_df):
     match_by_id_df, match_by_donor_df, unmatched_df = matching_logic(arena_df, ezt_df)
     return categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df)
 
-def export_full_report(arena_df, ezt_df):
+def export_full_report(arena_df, ezt_df, matched_data):
+
     match_by_id_df, match_by_donor_df, unmatched_df = matching_logic(arena_df, ezt_df)
 
-    # Format Arena data (call arena_excel)
-    # arena_excel_output = arena_excel(arena_df)
+    #arena_wb = load_workbook(matched_data)
     
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
             categorized_df = categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df)
             pd.read_excel(io.BytesIO(categorized_df)).to_excel(writer, sheet_name="Matched Contributions", index=False)
             arena_df.to_excel(writer, index=False, sheet_name="Arena Contributions")
+            # for sheet in arena_wb.sheetnames:
+            #     sheet_data = arena_wb[sheet]
+            #     temp_df = pd.DataFrame(sheet_data.values)
+            #     temp_df.columns = temp_df.iloc[0]
+            #     temp_df = temp_df[1:]
+            #     temp_df.to_excel(writer, sheet_name=sheet, index=False)
             ezt_df.to_excel(writer, index=False, sheet_name="EZT Contributions")
 
         with open(tmp.name, "rb") as f:
@@ -1048,9 +1060,10 @@ def runMatchingFunctions():
         # )
 
         # Button 3 — Matched AND Merged Infomation - 3 sheets
-        master_excel = export_full_report( #TODO: change method
+        master_excel = export_full_report(
             st.session_state.arena_data,
-            st.session_state.ezt_data
+            st.session_state.ezt_data, 
+            # st.session_state.matched_data
         )
         st.download_button(
             label="Master Workbook (.xlsx)",
