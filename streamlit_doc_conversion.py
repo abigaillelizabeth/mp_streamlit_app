@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import csv
-from openpyxl import load_workbook
+from openpyxl import *
 from openpyxl.styles import numbers
 import tempfile
 import io
@@ -16,61 +16,60 @@ import zipfile
 def process_arena_data(input_file):
     # Read in the PR data
     raw_arena = pd.read_excel(input_file, sheet_name=0, header=None)
-    #print(raw_arena.head())  # Print the first few rows to understand its structure
-    #print(raw_arena.shape)   # Check the number of rows and columns
+    # Drop any row that exactly matches the column headers (to remove repeated header rows)
+    raw_arena = raw_arena[raw_arena.iloc[:, 0] != "Family Id"]
 
     # remove extra columns
-    raw_arena = raw_arena.iloc[:, list(range(0, 14)) + [15]]
-    #print(raw_arena.head())
+    raw_arena = raw_arena.iloc[:, list(range(0, 15)) + [16]]
+    print(raw_arena.head())
 
     # Group by Family Id (column 0) and Person ID (column 1)
-    raw_arena.iloc[1:, 14] = raw_arena.iloc[1:, 14].astype(float)
+    raw_arena.iloc[1:, 15] = raw_arena.iloc[1:, 15].astype(float)
     grouped_arena = raw_arena.groupby([0, 1], as_index=False).agg({
-        2: 'first',    # Keep the first value for 'Last Name' (column 2)
-        3: 'first',    # Keep the first value for 'First Name' (column 3)
-        4: 'first',    # Keep the first value for 'Nick Name' (column 4)
-        5: 'first',    # Keep the first value for 'Spouse Title' (column 5)
-        6: 'first',    # Keep the first value for 'Spouse Last Name' (column 6)
-        7: 'first',    # Keep the first value for 'Spouse First Name' (column 7)
-        8: 'first',    # Keep the first value for 'Spouse Nick Name' (column 8)
-        9: 'first',    # Keep the first value for 'Address' (column 9)
-        10: 'first',   # Keep the first value for 'City' (column 10)
-        11: 'first',   # Keep the first value for 'State' (column 11)
-        12: 'first',   # Keep the first value for 'Zip' (column 12)
-        13: 'first',   # Keep the first value for 'Email' (column 13)
-        15: 'sum'      # Sum the 'Contribution Fund Amount' (column 15)
+        2: 'first',    # 'Last Name'
+        3: 'first',    # 'First Name'
+        4: 'first',    # 'Donor Title'
+        5: 'first',    # 'Nick Name'
+        6: 'first',    # 'Spouse Title'
+        7: 'first',    # 'Spouse Last Name' 
+        8: 'first',    # 'Spouse First Name' 
+        9: 'first',    # 'Spouse Nick Name'
+        10: 'first',   # 'Address' 
+        11: 'first',   # 'City'
+        12: 'first',   # 'State' 
+        13: 'first',   # 'Zip' 
+        14: 'first',   # 'Email' 
+        16: 'sum'      # 'Contribution Fund Amount' (sum)
     })
 
     # Rename the columns for clarity
-    grouped_arena.columns = ['Family Id', 'Person ID', 'Last Name', 'First Name', 'Nick Name', 
+    grouped_arena.columns = ['Family Id', 'Person ID', 'Last Name', 'First Name', 'Title', 'Nick Name', 
                              'Spouse Title', 'Spouse Last Name', 'Spouse First Name', 'Spouse Nick Name', 
                              'Address', 'City', 'State', 'Zip', 'Email', 'Total Contribution Fund Amount']
-
-    # print("printing grouped arena")
     # print(grouped_arena.shape)
-    # print(grouped_arena.head(20))
-
-    # Add a blank column "Title" at index 3
-    grouped_arena.insert(3, 'Title', '')  # Insert the new "Title" column at index 3 and leave it blank
+    #print(grouped_arena.head(10))
 
     # Sort by Last name
     sorted_arena = grouped_arena.sort_values(by=['Last Name'])
 
-    # TO_DO: if first name (index 4) == Nick Name (index 5) == blank, separate those columns to be at the very bottom of the output
-    # Step 1: Filter rows where 'First Name' and 'Nick Name' are both blank
+    # Filter to persons & businesses
     blank_names = sorted_arena[(sorted_arena['First Name'].isna()) & (sorted_arena['Nick Name'].isna())]
+    with_names = sorted_arena[~((sorted_arena['First Name'].isna()) & (sorted_arena['Nick Name'].isna()))]
 
-    # Step 2: Filter out those rows from the main DataFrame
-    sorted_arena = sorted_arena[~((sorted_arena['First Name'].isna()) & (sorted_arena['Nick Name'].isna()))]
+     # Create header and blank row
+    header_row = pd.DataFrame([list(sorted_arena.columns)], columns=sorted_arena.columns)
+    blank_row = pd.DataFrame([[""] * len(sorted_arena.columns)], columns=sorted_arena.columns)
 
-    # Step 3: Append the rows with blank names at the bottom of the DataFrame
-    sorted_arena = pd.concat([sorted_arena, blank_names])
+    final_df = pd.concat([
+        #header_row,
+        with_names,
+        blank_row,
+        header_row,
+        blank_names,
+    ], ignore_index=True)
 
-    # Remove rows that are identical to the column name
-    sorted_arena = sorted_arena[~(sorted_arena == sorted_arena.columns).all(axis=1)]
+    return final_df
 
-    arena_data = sorted_arena
-    return arena_data
 # Function to generate the output data
 def create_arena_file(processed_arena_data, is_streamlit = True):
     if is_streamlit:
@@ -633,13 +632,12 @@ def runArenaContributions():
 
             if combined_arena_data is not None and not combined_arena_data.empty:
                 output = arena_excel(combined_arena_data)
-
-                st.download_button(
-                    label="Download Merged Arena Data",
-                    data=output,
-                    file_name="merged_arena_batches.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                # st.download_button(
+                #     label="Download Merged Arena Data",
+                #     data=output,
+                #     file_name="merged_arena_batches.xlsx",
+                #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                # )
             else:
                 st.error("No valid data to write to Excel.")
         else:
@@ -728,12 +726,12 @@ def runEZTContributions():
         
             if combined_ezt_data is not None and not combined_ezt_data.empty:
                 output = ezt_excel(combined_ezt_data)
-                st.download_button(
-                    label="Download Merged EZT Data",
-                    data=output,
-                    file_name="merged_EZT_batches.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                # st.download_button(
+                #     label="Download Merged EZT Data",
+                #     data=output,
+                #     file_name="merged_EZT_batches.xlsx",
+                #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                # )
             else:
                 st.error("No valid data to write to Excel.")
         else:
@@ -879,23 +877,93 @@ def export_matched_excel(arena_df, ezt_df):
 
 #     return output
 
-def export_full_report_with_formatting(arena_df, ezt_df): # CHAT CODE UPDATED
+# def export_full_report_with_formatting(arena_df, ezt_df): # CHAT CODE UPDATED
+#     def apply_formatting(ws):
+#         print("apply_formatting method acccessed")
+#         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+#         for row in ws.iter_rows(min_row=2):
+#             #print("outer for-loop accessed")
+#             for i, header in enumerate(headers):
+#                 cell = row[i]
+#                 header_lower = str(header).lower().strip()
+#                 if header_lower in ["gross gift", "amount", "contribution amount", "total"]:
+#                     #print("matching currency header found")
+#                     cell.number_format = '"$"#,##0.00'
+#                 elif "date" in header_lower:
+#                     print("matching date header found")
+#                     cell.number_format = "mm/dd/yy"
+#                 else:
+#                     cell.number_format = "General"
+
+#     # Generate formatted Excel files in memory
+#     arena_output = arena_excel(arena_df)
+#     ezt_output = ezt_excel(ezt_df)
+#     matched_output = export_matched_excel(arena_df, ezt_df)
+
+#     # Load formatted workbooks
+#     arena_wb = load_workbook(arena_output)
+#     ezt_wb = load_workbook(ezt_output)
+#     matched_wb = load_workbook(matched_output)
+
+#     # Create a new workbook to merge all sheets
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+#         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
+#             # Copy matched workbook sheets
+#             for sheet in matched_wb.sheetnames:
+#                 ws = matched_wb[sheet]
+#                 apply_formatting(ws)
+#                 df = pd.DataFrame(ws.values)
+#                 df.columns = df.iloc[0]
+#                 df = df[1:]
+#                 df.to_excel(writer, sheet_name=sheet, index=False)
+
+#             # Copy Arena workbook sheets
+#             for sheet in arena_wb.sheetnames:
+#                 ws = arena_wb[sheet]
+#                 apply_formatting(ws)
+#                 df = pd.DataFrame(ws.values)
+#                 df.columns = df.iloc[0]
+#                 df = df[1:]
+#                 df.to_excel(writer, sheet_name=sheet, index=False)
+
+#             # Copy EZT workbook sheets
+#             for sheet in ezt_wb.sheetnames:
+#                 ws = ezt_wb[sheet]
+#                 apply_formatting(ws)
+#                 df = pd.DataFrame(ws.values)
+#                 df.columns = df.iloc[0]
+#                 df = df[1:]
+#                 df.to_excel(writer, sheet_name=sheet, index=False)
+
+#         # Finalize output
+#         output = io.BytesIO()
+#         with open(tmp.name, "rb") as f:
+#             output.write(f.read())
+#         output.seek(0)
+
+#     return output
+
+
+def export_full_report_with_formatting(arena_df, ezt_df):
     def apply_formatting(ws):
-        print("apply_formatting method acccessed")
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         for row in ws.iter_rows(min_row=2):
-            print("outer for-loop accessed")
             for i, header in enumerate(headers):
                 cell = row[i]
                 header_lower = str(header).lower().strip()
                 if header_lower in ["gross gift", "amount", "contribution amount", "total"]:
-                    print("matching currency header found")
                     cell.number_format = '"$"#,##0.00'
                 elif "date" in header_lower:
-                    print("matching date header found")
                     cell.number_format = "mm/dd/yy"
                 else:
                     cell.number_format = "General"
+
+    def copy_sheet_with_formatting(source_ws, target_wb, sheet_name):
+        new_ws = target_wb.create_sheet(title=sheet_name)
+        for row in source_ws.iter_rows():
+            for cell in row:
+                new_cell = new_ws.cell(row=cell.row, column=cell.column, value=cell.value)
+                new_cell.number_format = cell.number_format
 
     # Generate formatted Excel files in memory
     arena_output = arena_excel(arena_df)
@@ -903,47 +971,41 @@ def export_full_report_with_formatting(arena_df, ezt_df): # CHAT CODE UPDATED
     matched_output = export_matched_excel(arena_df, ezt_df)
 
     # Load formatted workbooks
+    arena_output.seek(0)
     arena_wb = load_workbook(arena_output)
+    ezt_output.seek(0)
     ezt_wb = load_workbook(ezt_output)
+    matched_output.seek(0)
     matched_wb = load_workbook(matched_output)
 
-    # Create a new workbook to merge all sheets
+    # Create a new workbook and copy all sheets
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-        with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
-            # Copy matched workbook sheets
-            for sheet in matched_wb.sheetnames:
-                ws = matched_wb[sheet]
-                apply_formatting(ws)
-                df = pd.DataFrame(ws.values)
-                df.columns = df.iloc[0]
-                df = df[1:]
-                df.to_excel(writer, sheet_name=sheet, index=False)
+        wb = Workbook()
+        # Remove the default sheet created by openpyxl
+        wb.remove(wb.active)
 
-            # Copy Arena workbook sheets
-            for sheet in arena_wb.sheetnames:
-                ws = arena_wb[sheet]
-                apply_formatting(ws)
-                df = pd.DataFrame(ws.values)
-                df.columns = df.iloc[0]
-                df = df[1:]
-                df.to_excel(writer, sheet_name=sheet, index=False)
+        for sheet in matched_wb.sheetnames:
+            apply_formatting(matched_wb[sheet])
+            copy_sheet_with_formatting(matched_wb[sheet], wb, sheet)
 
-            # Copy EZT workbook sheets
-            for sheet in ezt_wb.sheetnames:
-                ws = ezt_wb[sheet]
-                apply_formatting(ws)
-                df = pd.DataFrame(ws.values)
-                df.columns = df.iloc[0]
-                df = df[1:]
-                df.to_excel(writer, sheet_name=sheet, index=False)
+        for sheet in arena_wb.sheetnames:
+            apply_formatting(arena_wb[sheet])
+            copy_sheet_with_formatting(arena_wb[sheet], wb, sheet)
 
-        # Finalize output
+        for sheet in ezt_wb.sheetnames:
+            apply_formatting(ezt_wb[sheet])
+            copy_sheet_with_formatting(ezt_wb[sheet], wb, sheet)
+
+        wb.save(tmp.name)
+
+        # Stream result to memory
         output = io.BytesIO()
         with open(tmp.name, "rb") as f:
             output.write(f.read())
         output.seek(0)
 
     return output
+
 
 # def runMatchContributions():
 #     # set session state booleans for reference
@@ -1121,24 +1183,24 @@ def run_gui():
         # Run the application
         call_methods()
 
-# Streamit WITHOUT AUTH
+# # Streamit WITHOUT AUTH
 if __name__ == "__main__":
     #print("running streamlit app")
     call_methods()
     
-# Streamit WITH AUTH
-#if __name__ == "__main__":
-#    run_gui()
+# # Streamit WITH AUTH
+# #if __name__ == "__main__":
+# #    run_gui()
 
-# # TERMINAL TESTING
+# TERMINAL TESTING
 # if __name__ == "__main__":
-#     # PAYROLL
-#     uploaded_PR = 'PR Journal Entry_03.25.2025-1.xlsx'  # Replace with the path to your test file
-#     mainPR(uploaded_PR)
-#     # CIGNA
-#     uploaded_Cig = 'GroupPremiumStatementRpt_03.2025.xlsx'  # Replace with the path to your test file
-#     mainCig(uploaded_Cig)
-#     # ARENA 
-#     uploaded_arena = 'Arena Masterfile Tester.xlsx'  # Replace with the path to your test file
-#     mainArena(uploaded_arena)
+    # # PAYROLL
+    # uploaded_PR = 'PR Journal Entry_03.25.2025-1.xlsx'  # Replace with the path to your test file
+    # mainPR(uploaded_PR)
+    # # CIGNA
+    # uploaded_Cig = 'GroupPremiumStatementRpt_03.2025.xlsx'  # Replace with the path to your test file
+    # mainCig(uploaded_Cig)
+    # # ARENA 
+    # uploaded_arena = 'DonorMailingTester.xlsx'  # Replace with the path to your test file
+    # mainArena(uploaded_arena)
 
