@@ -1318,13 +1318,13 @@ def run_gui():
         call_methods()
 
 # # Streamit WITHOUT AUTH
-if __name__ == "__main__":
-    #print("running streamlit app")
-    call_methods()
+# if __name__ == "__main__":
+#     #print("running streamlit app")
+#     call_methods()
     
-# # Streamit WITH AUTH
-# #if __name__ == "__main__":
-# #    run_gui()
+# Streamit WITH AUTH
+if __name__ == "__main__":
+    run_gui()
 
 # TERMINAL TESTING
 # if __name__ == "__main__":
