@@ -154,29 +154,6 @@ def create_ftg_file(df, is_streamlit=True):
                 elif isinstance(cell.value, str) and "date" in cell.value.lower():
                     cell.number_format = 'mm/dd/yyyy'
 
-    # if is_streamlit:
-    #     # STEP 1: Write raw FTG Report to an intermediate buffer
-    #     intermediate = io.BytesIO()
-    #     with pd.ExcelWriter(intermediate, engine='openpyxl') as writer:
-    #         df.to_excel(writer, index=False, sheet_name=SHEET_1_NAME)
-
-    #     # STEP 2: Load the workbook from the buffer
-    #     intermediate.seek(0)
-    #     wb = load_workbook(intermediate)
-
-    #     # STEP 3: Make edits to the workbook
-    #     if wb.sheetnames[0] != SHEET_1_NAME:
-    #         wb.active.title = SHEET_1_NAME
-
-    #     wb.create_sheet(SHEET_2_NAME)
-    #     format_ftg_condensed_sheet(wb, SHEET_2_NAME)
-    #     format_ftg_report_sheet(wb[SHEET_1_NAME])
-
-    #     # STEP 4: Save to a fresh output stream
-    #     final_output = io.BytesIO()
-    #     wb.save(final_output)
-    #     final_output.seek(0)
-    #     return final_output
 
     if is_streamlit:
         # STEP 1: Write FTG Report to intermediate buffer
@@ -294,7 +271,7 @@ def runFTGmain():
             output_file = create_ftg_file(processed_data)
 
             st.success("First-time givers list ready for download!")
-            st.write("Generated file size (bytes):", len(output_file.getvalue()))
+            #st.write("Generated file size (bytes):", len(output_file.getvalue()))
 
             # Provide download button for the payroll output
             st.download_button(
