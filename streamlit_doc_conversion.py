@@ -149,9 +149,9 @@ def create_ftg_file(df, is_streamlit=True):
     def format_ftg_report_sheet(ws):
         for row in ws.iter_rows(min_row=2):
             for cell in row:
-                if isinstance(cell.value, (int, float)):
-                    cell.number_format = '#,##0.00'
-                elif isinstance(cell.value, str) and "date" in cell.value.lower():
+                # if isinstance(cell.value, (int, float)):
+                #     cell.number_format = '#,##0.00'
+                if isinstance(cell.value, str) and "date" in cell.value.lower():
                     cell.number_format = 'mm/dd/yyyy'
 
 
@@ -1364,7 +1364,7 @@ def authenticate(username, password):
 # Call and implement the file methods
 def call_methods():
     # When the user is logged in, show the rest of the app
-    st.write("You are successfully logged in.")
+    #st.write("You are successfully logged in.")
     st.title("File Import & Conversion App")
     file_type = st.radio("Select the file type you want to convert:", 
                          ['Contribution Reports', 'Arena Mailing List', 
