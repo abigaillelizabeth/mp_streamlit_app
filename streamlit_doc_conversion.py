@@ -2,10 +2,12 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import re
 import csv
 from openpyxl import *
 from openpyxl.styles import numbers
 from openpyxl.utils.dataframe import dataframe_to_rows
+from collections import defaultdict
 from openpyxl.styles import Font
 import tempfile
 import datetime
@@ -203,22 +205,27 @@ def format_ftg_condensed_sheet(wb, sheet_name="FTG Mailing Condensed"):
     source_sheet = wb["FTG Report"]
     target_sheet = wb[sheet_name]
 
-    # Write header
-    headers = ["Full Name", "Address", "Contribution Amount"]
+    # Write new header
+    headers = ["Person ID", "Full Name", "Address", "Contribution Amount"]
     target_sheet.append(headers)
 
-    # Get column indices from header row
+    # Map headers to column indexes
     header_row = [str(cell.value).strip() for cell in next(source_sheet.iter_rows(min_row=1, max_row=1))]
     col_index = {col: i for i, col in enumerate(header_row)}
-    #st.write("Column headers found:", header_row)
 
+    # Group data by Person ID
+    donor_data = defaultdict(lambda: {
+        "full_name": "",
+        "address": "",
+        "amount": 0
+    })
 
-    # Read each row and construct values if both first and last name are present
     for row in source_sheet.iter_rows(min_row=2, values_only=True):
+        person_id = row[col_index["Person ID"]]
         first = row[col_index["First Name"]]
         last = row[col_index["Last Name"]]
 
-        # Skip if either first or last name is missing
+        # Skip company entries
         if not first or not last:
             continue
 
@@ -231,15 +238,37 @@ def format_ftg_condensed_sheet(wb, sheet_name="FTG Mailing Condensed"):
         zip_code = row[col_index["Zip"]] or ""
         address = f"{street}, {city}, {state} {zip_code}".strip(", ")
 
-        amount = row[col_index["Contribution Amount"]]
+        raw_amount = row[col_index["Contribution Amount"]]
+        try:
+            # Remove $ signs, commas, spaces
+            cleaned = re.sub(r"[^\d.\-]", "", str(raw_amount))
+            amount = float(cleaned)
+        except (TypeError, ValueError):
+            amount = 0
 
-        target_sheet.append([full_name, address, amount])
+
+        donor_data[person_id]["full_name"] = full_name
+        donor_data[person_id]["address"] = address
+        donor_data[person_id]["amount"] += amount
+
+    # Write one row per unique donor
+    for person_id, info in donor_data.items():
+        target_sheet.append([
+            person_id,
+            info["full_name"],
+            info["address"],
+            info["amount"]
+        ])
 
     # Format amount column
     for row in target_sheet.iter_rows(min_row=2):
-        amount_cell = row[2]
+        amount_cell = row[3]
         if isinstance(amount_cell.value, (int, float)):
-            amount_cell.number_format = '#,##0.00'
+            amount_cell.number_format = '"$"#,##0.00'
+
+    # Bold the header row
+    for cell in target_sheet[1]:
+        cell.font = Font(bold=True)
 
 def mainFTG(uploaded_file):
     processed_data = process_ftg_data(uploaded_file)
@@ -1420,15 +1449,15 @@ def run_gui():
         call_methods()
 
 
-# # Streamit WITHOUT AUTH
-# if __name__ == "__main__":
-#     #print("running streamlit app")
-#     call_methods()
+# Streamit WITHOUT AUTH
+if __name__ == "__main__":
+    #print("running streamlit app")
+    call_methods()
     
 
 # Streamit WITH AUTH
-if __name__ == "__main__":
-    run_gui()
+# if __name__ == "__main__":
+#     run_gui()
 
 # TERMINAL TESTING
 # if __name__ == "__main__":
