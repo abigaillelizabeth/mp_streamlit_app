@@ -20,7 +20,7 @@ import io
 
 # ARENA METHODS  
 # Function to reformat the input data
-def process_arena_data(input_file):
+def process_mailing_data(input_file):
     # Read in the arena data
     raw_arena = pd.read_excel(input_file, sheet_name=0, header=None)
     # Drop any row that exactly matches the column headers (to remove repeated header rows)
@@ -76,9 +76,8 @@ def process_arena_data(input_file):
     ], ignore_index=True)
 
     return final_df
-
 # Function to generate the output data
-def create_arena_file(processed_arena_data, is_streamlit = True):
+def create_mailing_file(processed_arena_data, is_streamlit = True):
     if is_streamlit:
         # If running in Streamlit, keep the file in memory (no save to disk)
         arena_file = io.BytesIO()  # In-memory file for Streamlit (binary mode)
@@ -94,12 +93,12 @@ def create_arena_file(processed_arena_data, is_streamlit = True):
 
     return arena_file
 # Arena Main
-def mainArena(uploaded_file):
-    processed_data = process_arena_data(uploaded_file)
+def mainMailing(uploaded_file):
+    processed_data = process_mailing_data(uploaded_file)
     print("data has been processed.")
 
     # Test the file creation function
-    arena_final = create_arena_file(processed_data, is_streamlit = False)
+    arena_final = process_mailing_data(processed_data, is_streamlit = False)
     #print(arena_final)
 
     if arena_final != None:
@@ -109,19 +108,19 @@ def mainArena(uploaded_file):
 
     return arena_final
 # Function to run arena methods  
-def runArenaMain():
+def runMailingMain():
     st.header("Arena File Upload")
     # Input Information
-    uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx")
+    uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx", key="arena_mailing")
 
     # Run the script when the button is pressed
     if st.button("Create Donor Summary"):
         if uploaded_file is not None:
             # Process the payroll data
-            processed_data = process_arena_data(uploaded_file)
+            processed_data = process_mailing_data(uploaded_file)
             
             # Create the output file
-            output_file = create_arena_file(processed_data)
+            output_file = create_mailing_file(processed_data)
 
             st.success("Donor mailing list processed and ready for download!")
 
@@ -288,7 +287,7 @@ def mainFTG(uploaded_file):
 def runFTGmain():
     st.header("First-Time Givers Report")
     # Input Information
-    uploaded_file = st.file_uploader("Upload a First-Time Givers report in CSV format.", type=["csv"])
+    uploaded_file = st.file_uploader("Upload a First-Time Givers report in CSV format.", type=["csv"], key="ftg_file")
 
     # Run the script when the button is pressed
     if st.button("Create First-Time Givers Summary"):
@@ -426,7 +425,7 @@ def mainPR(uploaded_file):
 def runPayroll():
     st.header("Payroll File Upload")
     # Input Information
-    uploaded_file = st.file_uploader("Choose an Excel file for Payroll", type="xlsx")
+    uploaded_file = st.file_uploader("Choose an Excel file for Payroll", type="xlsx", key = "payroll_file")
     journal_date = st.text_input("Journal Date:", value="010125")
     accounting_period = st.text_input("Accounting Period:", value="01")
     description_1 = st.text_input("Description for Journal Entry:", value="Payroll Entry xx.xx.xx")
@@ -600,7 +599,7 @@ def mainCig(uploaded_file):
 def runCigna():
     st.header("Cigna File Upload")
     # Input Information
-    uploaded_file = st.file_uploader("Choose an Excel file for Cigna", type="xlsx")
+    uploaded_file = st.file_uploader("Choose an Excel file for Cigna", type="xlsx", key = "cigna_file")
     journal_date = st.text_input("Journal Date:", value="010125")
     accounting_period = st.text_input("Accounting Period:", value="01")
     description_1 = st.text_input("Description for Journal Entry:", value="Cigna Entry xx.xx.xx")
@@ -809,7 +808,11 @@ def arena_excel(combined_arena_data):
 def runArenaContributions():
     #st.write("Arena Batch Files Upload")
     # Upload Arena Batch Files (Allow multiple files)
-    uploaded_arena_files = st.file_uploader("Arena Batch Files Upload", type="xlsx", accept_multiple_files=True)
+    uploaded_arena_files = st.file_uploader(
+        "Arena Batch Files Upload", type="xlsx", 
+        accept_multiple_files=True, 
+        key = "arena_batch_files"
+        )
     # Process the uploaded Arena files
     if st.button("Import Arena Batches"):
         if uploaded_arena_files:
@@ -904,7 +907,8 @@ def runEZTContributions():
     uploaded_ezt_files = st.file_uploader(
         "EasyTithe Batch Files Upload",
         type=["xlsx", "csv"],
-        accept_multiple_files=True
+        accept_multiple_files=True, 
+        key="ezt_batch_files"
     )
     #Run the script when the button is clicked for EZT file
     if st.button("Import EasyTithe Batches"):
@@ -1173,26 +1177,6 @@ def export_matched_excel(arena_df, ezt_df):
 
 #     return output
 
-# def export_full_report(arena_df, ezt_df):
-#     matched_df = match_data_logic(arena_df, ezt_df)
-
-#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-#         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
-#             matched_df.to_excel(writer, index=False, sheet_name="Matched Contributions")
-#             arena_df.to_excel(writer, index=False, sheet_name="Arena Contributions")
-#             ezt_df.to_excel(writer, index=False, sheet_name="EZT Contributions")
-
-#         wb = load_workbook(tmp.name)
-#         wb.save(tmp.name)
-
-#         output = io.BytesIO()
-#         with open(tmp.name, "rb") as f:
-#             output.write(f.read())
-#         output.seek(0)
-
-#     return output
-
-
 def export_full_report_with_formatting(arena_df, ezt_df): # CHAT CODE UPDATED
     def apply_formatting(ws):
         print("apply_formatting method acccessed")
@@ -1390,26 +1374,76 @@ def authenticate(username, password):
             return True  # Successful authentication
     return False  # Failed authentication
 
-# Call and implement the file methods
+# # Call and implement the file methods
+# def call_methods(): #OLD SETUP
+#     # When the user is logged in, show the rest of the app
+#     #st.write("You are successfully logged in.")
+#     st.title("File Import & Conversion App")
+#     file_type = st.radio("Select the file type you want to convert:", 
+#                          ['Contribution Reports', 'Arena Mailing List', 
+#                          'First-Time Givers Report', 'Payroll Workbook', 
+#                          'Cigna Download'])
+    
+#     # Run the correct set of methods based on user-selected file type
+#     if file_type == 'Contribution Reports':
+#         runContributions()
+#     elif file_type == 'First-Time Givers Report':
+#         runFTGmain()
+#     elif file_type == 'Payroll Workbook':
+#         runPayroll()
+#     elif file_type == 'Cigna Download':
+#         runCigna()
+#     elif file_type == 'Arena Mailing List':
+#         runArenaMain()
+
 def call_methods():
-    # When the user is logged in, show the rest of the app
-    #st.write("You are successfully logged in.")
-    st.title("File Import & Conversion App")
-    file_type = st.radio("Select the file type you want to convert:", 
-                         ['Contribution Reports', 'Arena Mailing List', 
-                         'First-Time Givers Report', 'Payroll Workbook', 
-                         'Cigna Download'])
-    # Run the correct set of methods based on user-selected file type
-    if file_type == 'Contribution Reports':
+    st.title("Mount Paran File Import & Conversion App")
+
+    selected_function = None
+
+    with st.sidebar:
+        st.header("Tools Menu")
+
+        st.markdown("### 📋 Arena List Formatting")
+        if st.button("📨 Arena Mailing List"):
+            selected_function = "Arena Mailing List"
+        if st.button("👤 First-Time Givers Report"):
+            selected_function = "First-Time Givers Report"
+
+        st.markdown("### 📂 Contributions")
+        if st.button("🧾 Contribution Reports"):
+            selected_function = "Contribution Reports"
+
+        st.markdown("### 🧮 Journey Entry Creation")
+        if st.button("💼 Payroll Workbook"):
+            selected_function = "Payroll Workbook"
+        if st.button("💊 Cigna Download"):
+            selected_function = "Cigna Download"
+
+    # Main view router
+    if selected_function == "Contribution Reports":
         runContributions()
-    elif file_type == 'First-Time Givers Report':
+    elif selected_function == "Arena Mailing List":
+        runMailingMain()
+    elif selected_function == "First-Time Givers Report":
         runFTGmain()
-    elif file_type == 'Payroll Workbook':
+    elif selected_function == "Payroll Workbook":
         runPayroll()
-    elif file_type == 'Cigna Download':
+    elif selected_function == "Cigna Download":
         runCigna()
-    elif file_type == 'Arena Mailing List':
-        runArenaMain()
+ 
+
+    # Main panel routing
+    if selected_function == "Contribution Reports":
+        runContributions()
+    elif selected_function == "Arena Mailing List":
+        runMailingMain()
+    elif selected_function == "First-Time Givers Report":
+        runFTGmain()
+    elif selected_function == "Payroll Workbook":
+        runPayroll()
+    elif selected_function == "Cigna Download":
+        runCigna()
 
 # Set streamlit logic 
 def run_gui():
@@ -1425,12 +1459,9 @@ def run_gui():
         # Create input fields for username and password
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-
-        # Login button to check credentials
         login_button = st.button("Login")
 
         if login_button:
-        # Check if the credentials are valid
             if authenticate(username, password):
                 # Successful login
                 st.session_state.logged_in = True  # Store login status
@@ -1441,23 +1472,30 @@ def run_gui():
                 st.error("Invalid credentials. Please try again.")
     
     else:
-        # Add a logout button
-        if st.button("Logout"):
-            st.session_state.logged_in = False  # Reset login status
-            st.rerun()  # Refresh the app after logging out
-        # Run the application
+        with st.sidebar:
+            if st.button("🔒 Logout"):
+                st.session_state.logged_in = False
+                st.rerun()
         call_methods()
+
+    # else:
+    #     # Add a logout button
+    #     if st.button("Logout"):
+    #         st.session_state.logged_in = False  # Reset login status
+    #         st.rerun() 
+    #     # Run the application
+    #     call_methods()
 
 
 # Streamit WITHOUT AUTH
-# if __name__ == "__main__":
-#     #print("running streamlit app")
-#     call_methods()
+if __name__ == "__main__":
+    #print("running streamlit app")
+    call_methods()
     
 
-# Streamit WITH AUTH
-if __name__ == "__main__":
-    run_gui()
+# # Streamit WITH AUTH
+# if __name__ == "__main__":
+#     run_gui()
 
 # TERMINAL TESTING
 # if __name__ == "__main__":
