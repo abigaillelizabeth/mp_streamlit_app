@@ -108,7 +108,7 @@ def mainMailing(uploaded_file):
 
     return arena_final
 # Function to run arena methods  
-def runMailingMain():
+def runMailing():
     st.header("Mailing List Report Upload")
     # Input Information
     uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx", key="arena_mailing")
@@ -143,7 +143,7 @@ def process_ftg_data(input_file):
 
     return raw_ftg
 
-def create_ftg_file(df, is_streamlit=True):
+def create_ftg_file(processed_ftg_data, is_streamlit=True):
     SHEET_1_NAME = "FTG Report"
     SHEET_2_NAME = "FTG Mailing Condensed"
 
@@ -160,7 +160,7 @@ def create_ftg_file(df, is_streamlit=True):
         # STEP 1: Write FTG Report to intermediate buffer
         intermediate = io.BytesIO()
         with pd.ExcelWriter(intermediate, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name=SHEET_1_NAME)
+            processed_ftg_data.to_excel(writer, index=False, sheet_name=SHEET_1_NAME)
 
         # ⚠️ Must reset before loading
         intermediate.seek(0)
@@ -186,7 +186,7 @@ def create_ftg_file(df, is_streamlit=True):
     else:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
             with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name=SHEET_1_NAME)
+                processed_ftg_data.to_excel(writer, index=False, sheet_name=SHEET_1_NAME)
 
             wb = load_workbook(tmp.name)
 
@@ -284,10 +284,10 @@ def mainFTG(uploaded_file):
 
     return ftg_file
 
-def runFTGmain():
+def runFTG():
     st.header("First-Time Givers Report Upload")
     # Input Information
-    uploaded_file = st.file_uploader("Upload a First-Time Givers report in CSV format.", type=["csv"], key="ftg_file")
+    uploaded_file = st.file_uploader("Upload a First-Time Givers report in CSV format", type=["csv"], key="ftg_file")
 
     # Run the script when the button is pressed
     if st.button("Create First-Time Givers Summary"):
@@ -310,6 +310,21 @@ def runFTGmain():
             )
         else:
             st.error("Please upload a first-time givers file.")
+
+
+# ASSURE CONVERSION METHODS
+def process_assure_file(input_file):
+    return FileExistsError
+
+def create_assure_file(processed_assure_data, is_streamlit = True):
+    return FileExistsError
+
+def mainAssure(uploaded_file):
+    return FileExistsError
+
+def runAssure():
+    return FileExistsError
+
 
 
 # PAYROLL METHODS
@@ -425,7 +440,7 @@ def mainPR(uploaded_file):
 def runPayroll():
     st.header("Payroll File Upload")
     # Input Information
-    uploaded_file = st.file_uploader("Choose an Excel file for Payroll", type="xlsx", key = "payroll_file")
+    uploaded_file = st.file_uploader("Upload a completed Payroll Excel file", type="xlsx", key = "payroll_file")
     journal_date = st.text_input("Journal Date:", value="010125")
     accounting_period = st.text_input("Accounting Period:", value="01")
     description_1 = st.text_input("Description for Journal Entry:", value="Payroll Entry xx.xx.xx")
@@ -599,7 +614,7 @@ def mainCig(uploaded_file):
 def runCigna():
     st.header("Cigna File Upload")
     # Input Information
-    uploaded_file = st.file_uploader("Choose an Excel file for Cigna", type="xlsx", key = "cigna_file")
+    uploaded_file = st.file_uploader("Upload a Cigna-downloaded Excel file", type="xlsx", key = "cigna_file")
     journal_date = st.text_input("Journal Date:", value="010125")
     accounting_period = st.text_input("Accounting Period:", value="01")
     description_1 = st.text_input("Description for Journal Entry:", value="Cigna Entry xx.xx.xx")
@@ -806,10 +821,9 @@ def arena_excel(combined_arena_data):
     return output
 
 def runArenaContributions():
-    #st.write("Arena Batch Files Upload")
     # Upload Arena Batch Files (Allow multiple files)
     uploaded_arena_files = st.file_uploader(
-        "Arena Batch Files Upload", type="xlsx", 
+        "Upload Arena Batch Files ", type="xlsx", 
         accept_multiple_files=True, 
         key = "arena_batch_files"
         )
@@ -905,7 +919,7 @@ def runEZTContributions():
     #st.write("EasyTithe Batch File Upload")
     # Upload the EZT batch file
     uploaded_ezt_files = st.file_uploader(
-        "EasyTithe Batch Files Upload",
+        "Upload EasyTithe Batch Files ",
         type=["xlsx", "csv"],
         accept_multiple_files=True, 
         key="ezt_batch_files"
@@ -1396,7 +1410,6 @@ def authenticate(username, password):
 #     elif file_type == 'Arena Mailing List':
 #         runArenaMain()
 
-
 # def call_methods(): #new setup first try
 #     st.title("MPC File Import & Conversion")
 
@@ -1467,6 +1480,8 @@ def call_methods():
             st.session_state.selected_function = "Payroll Workbook"
         if st.button("💊 Cigna Workbook"):
             st.session_state.selected_function = "Cigna Workbook"
+        if st.button("⏳Assure Download"):
+            st.session_state.selected_function = "Assure Download"
 
         st.markdown("---")
         if st.button("🔒 Logout"):
@@ -1480,13 +1495,15 @@ def call_methods():
     if selected_function == "Contribution Reports":
         runContributions()
     elif selected_function == "Arena Mailing Report":
-        runMailingMain()
+        runMailing()
     elif selected_function == "First-Time Givers Report":
-        runFTGmain()
+        runFTG()
     elif selected_function == "Payroll Workbook":
         runPayroll()
     elif selected_function == "Cigna Workbook":
         runCigna()
+    elif selected_function == "Assure Download":
+        runAssure()
 
 
 # Set streamlit logic 
@@ -1516,11 +1533,6 @@ def run_gui():
                 st.error("Invalid credentials. Please try again.")
     
     else:
-        # Add a logout button
-        if st.button("Logout"):
-            st.session_state.logged_in = False  # Reset login status
-            st.rerun() 
-        # Run the application
         call_methods()
 
 
