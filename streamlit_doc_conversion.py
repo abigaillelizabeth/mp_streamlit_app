@@ -28,7 +28,7 @@ def process_mailing_data(input_file):
 
     # remove extra columns
     raw_arena = raw_arena.iloc[:, list(range(0, 15)) + [16]]
-    print(raw_arena.head())
+    #print(raw_arena.head())
 
     # Group by Family Id (column 0) and Person ID (column 1)
     raw_arena.iloc[1:, 15] = raw_arena.iloc[1:, 15].astype(float)
@@ -109,7 +109,7 @@ def mainMailing(uploaded_file):
     return arena_final
 # Function to run arena methods  
 def runMailingMain():
-    st.header("Arena File Upload")
+    st.header("Mailing List Report Upload")
     # Input Information
     uploaded_file = st.file_uploader("Upload an Arena-Downloaded Excel file", type="xlsx", key="arena_mailing")
 
@@ -285,7 +285,7 @@ def mainFTG(uploaded_file):
     return ftg_file
 
 def runFTGmain():
-    st.header("First-Time Givers Report")
+    st.header("First-Time Givers Report Upload")
     # Input Information
     uploaded_file = st.file_uploader("Upload a First-Time Givers report in CSV format.", type=["csv"], key="ftg_file")
 
@@ -1396,54 +1396,98 @@ def authenticate(username, password):
 #     elif file_type == 'Arena Mailing List':
 #         runArenaMain()
 
-def call_methods():
-    st.title("Mount Paran File Import & Conversion App")
 
-    selected_function = None
+# def call_methods(): #new setup first try
+#     st.title("MPC File Import & Conversion")
+
+#     selected_function = None
+
+#     with st.sidebar:
+#         st.header("Tools Menu")
+
+#         st.markdown("### 📋 Arena List Formatting")
+#         if st.button("📨 Arena Mailing List"):
+#             selected_function = "Arena Mailing List"
+#         if st.button("👤 First-Time Givers Report"):
+#             selected_function = "First-Time Givers Report"
+
+#         st.markdown("### 📂 Contributions")
+#         if st.button("🧾 Contribution Reports"):
+#             selected_function = "Contribution Reports"
+
+#         st.markdown("### 🧮 Journey Entry Creation")
+#         if st.button("💼 Payroll Workbook"):
+#             selected_function = "Payroll Workbook"
+#         if st.button("💊 Cigna Workbook"):
+#             selected_function = "Cigna Workbook"
+
+#     # Main view router
+#     if selected_function == "Contribution Reports":
+#         runContributions()
+#     elif selected_function == "Arena Mailing List":
+#         runMailingMain()
+#     elif selected_function == "First-Time Givers Report":
+#         runFTGmain()
+#     elif selected_function == "Payroll Workbook":
+#         runPayroll()
+#     elif selected_function == "Cigna Workbook":
+#         runCigna()
+ 
+
+#     # Main panel routing
+#     if selected_function == "Contribution Reports":
+#         runContributions()
+#     elif selected_function == "Arena Mailing List":
+#         runMailingMain()
+#     elif selected_function == "First-Time Givers Report":
+#         runFTGmain()
+#     elif selected_function == "Payroll Workbook":
+#         runPayroll()
+#     elif selected_function == "Cigna Download":
+#         runCigna()
+
+def call_methods():
+    st.title("MP File Import & Conversion App")
 
     with st.sidebar:
         st.header("Tools Menu")
 
-        st.markdown("### 📋 Arena List Formatting")
-        if st.button("📨 Arena Mailing List"):
-            selected_function = "Arena Mailing List"
-        if st.button("👤 First-Time Givers Report"):
-            selected_function = "First-Time Givers Report"
-
         st.markdown("### 📂 Contributions")
         if st.button("🧾 Contribution Reports"):
-            selected_function = "Contribution Reports"
+            st.session_state.selected_function = "Contribution Reports"
+
+        st.markdown("### 📋 Arena List Formatting")
+        if st.button("📨 Arena Mailing Report"):
+            st.session_state.selected_function = "Arena Mailing Report"
+        if st.button("👤 First-Time Givers Report"):
+            st.session_state.selected_function = "First-Time Givers Report"
 
         st.markdown("### 🧮 Journey Entry Creation")
         if st.button("💼 Payroll Workbook"):
-            selected_function = "Payroll Workbook"
-        if st.button("💊 Cigna Download"):
-            selected_function = "Cigna Download"
+            st.session_state.selected_function = "Payroll Workbook"
+        if st.button("💊 Cigna Workbook"):
+            st.session_state.selected_function = "Cigna Workbook"
 
-    # Main view router
+        st.markdown("---")
+        if st.button("🔒 Logout"):
+            st.session_state.logged_in = False
+            st.session_state.selected_function = None
+            st.rerun()
+
+    # Show the selected tool
+    selected_function = st.session_state.get("selected_function")
+
     if selected_function == "Contribution Reports":
         runContributions()
-    elif selected_function == "Arena Mailing List":
+    elif selected_function == "Arena Mailing Report":
         runMailingMain()
     elif selected_function == "First-Time Givers Report":
         runFTGmain()
     elif selected_function == "Payroll Workbook":
         runPayroll()
-    elif selected_function == "Cigna Download":
+    elif selected_function == "Cigna Workbook":
         runCigna()
- 
 
-    # Main panel routing
-    if selected_function == "Contribution Reports":
-        runContributions()
-    elif selected_function == "Arena Mailing List":
-        runMailingMain()
-    elif selected_function == "First-Time Givers Report":
-        runFTGmain()
-    elif selected_function == "Payroll Workbook":
-        runPayroll()
-    elif selected_function == "Cigna Download":
-        runCigna()
 
 # Set streamlit logic 
 def run_gui():
@@ -1472,30 +1516,19 @@ def run_gui():
                 st.error("Invalid credentials. Please try again.")
     
     else:
-        with st.sidebar:
-            if st.button("🔒 Logout"):
-                st.session_state.logged_in = False
-                st.rerun()
+        # Add a logout button
+        if st.button("Logout"):
+            st.session_state.logged_in = False  # Reset login status
+            st.rerun() 
+        # Run the application
         call_methods()
 
-    # else:
-    #     # Add a logout button
-    #     if st.button("Logout"):
-    #         st.session_state.logged_in = False  # Reset login status
-    #         st.rerun() 
-    #     # Run the application
-    #     call_methods()
 
-
-# Streamit WITHOUT AUTH
+# Streamit running
 if __name__ == "__main__":
-    #print("running streamlit app")
-    call_methods()
+    run_gui() # WITH AUTN
+    #call_methods() # WITHOUT AUTH
     
-
-# # Streamit WITH AUTH
-# if __name__ == "__main__":
-#     run_gui()
 
 # TERMINAL TESTING
 # if __name__ == "__main__":
