@@ -871,7 +871,6 @@ def arena_excel(combined_arena_data):
 
     return output
 
-
 def runArenaContributions():
     # Upload Arena Batch Files (Allow multiple files)
     uploaded_arena_files = st.file_uploader(
@@ -907,7 +906,6 @@ def runArenaContributions():
         #arena_file_output = arena_excel(combined_arena_data)
         return 
         
-
 # CONTRIBUTIONS- EASY-TITHE
 def ezt_merge(uploaded_ezt_data): 
     #print("running ezt_merge")
@@ -932,7 +930,6 @@ def ezt_merge(uploaded_ezt_data):
         else: # If it's not the first file, append it to the combined dataframe
             combined_ezt_data = pd.concat([combined_ezt_data, raw_contrib_ezt], ignore_index=True)
     return combined_ezt_data
-
 
 # def ezt_excel(combined_ezt_data): WORKBOOK ERROR
 #     # Save to a temporary Excel file
@@ -968,7 +965,6 @@ def ezt_merge(uploaded_ezt_data):
 
 #     return output
 
-
 def ezt_excel(combined_ezt_data):
     import io, datetime
     from openpyxl import Workbook
@@ -1002,7 +998,6 @@ def ezt_excel(combined_ezt_data):
     wb.save(output)
     output.seek(0)
     return output
-
 
 def runEZTContributions():
     #st.write("EasyTithe Batch File Upload")
@@ -1038,7 +1033,6 @@ def runEZTContributions():
                 st.error("No valid data to write to Excel.")
         else:
             st.error("Please upload at least one EasyTithe batch.")
-
 
 # CONTRIBUTIONS- MATCHING BY ID
 def reorder_merged_columns(merged, arena_df, ezt_df):
@@ -1114,44 +1108,6 @@ def matching_logic(arena_df, ezt_df):
     )
     # return match_by_transaction_id, pd.DataFrame(), pd.concat([arena_only, ezt_only], ignore_index=True)
 
-
-# def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df):
-#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-#         wb = Workbook()
-#         ws = wb.active
-#         ws.title = "Matched Contributions"
-        
-#     def write_section(header, df, start_row):
-#         # Write title row, bold, only col A populated
-#         for col in range(1, ws.max_column + 1 or len(df.columns) + 1):
-#             cell = ws.cell(row=start_row, column=col)
-#             if col == 1:
-#                 cell.value = header
-#             else:
-#                 cell.value = ""
-#             cell.font = Font(bold=True)
-
-#         # Write DataFrame, bold header row
-#         for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=start_row + 1):
-#             for c_idx, value in enumerate(row, start=1):
-#                 cell = ws.cell(row=r_idx, column=c_idx, value=value)
-#                 #if r_idx == start_row + 1:
-#                 #   cell.font = Font(bold=True)
-
-#         return r_idx + 2  # Advance cursor
-
-#     row_cursor = 1
-#     row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
-#     if not match_by_donor_df.empty:
-#         row_cursor = write_section("Matched by Donor Info", match_by_donor_df, row_cursor)
-#     row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
-
-#     wb.save(tmp.name)
-#     with open(tmp.name, "rb") as f:
-#         final_output = f.read()
-
-#     return final_output
-
 # def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df): # WORKBOOK ERROR
 #     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
 #         wb = Workbook()
@@ -1196,7 +1152,6 @@ def matching_logic(arena_df, ezt_df):
 
 #     return final_output
       
-
 def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df):
     import io
     from openpyxl import Workbook
@@ -1319,56 +1274,12 @@ def export_combined_excel(arena_df, ezt_df):
     output.seek(0)
     return output
 
-
 # def export_matched_excel(arena_df, ezt_df):
 #     match_by_id_df, match_by_donor_df, unmatched_df = matching_logic(arena_df, ezt_df)
 #     return categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df)
 
-
 def export_matched_excel(arena_df, ezt_df):
     return matching_logic(arena_df, ezt_df)  # no unpacking
-
-
-# def export_full_report(arena_df, ezt_df, matched_data):
-
-#     match_by_id_df, match_by_donor_df, unmatched_df = matching_logic(arena_df, ezt_df)
-
-#     #arena_wb = load_workbook(matched_data)
-    
-#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-#         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
-#             merged_df.to_excel(writer, index=False, sheet_name="Matched Contributions")
-
-#         # Open workbook to apply formatting
-#         wb = load_workbook(tmp.name)
-#         ws = wb.active
-
-#         # Get the header row
-#         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
-
-#         # Format specific columns
-#         for row in ws.iter_rows(min_row=2):
-#             for i, header in enumerate(headers):
-#                 cell = row[i]
-#                 header_lower = str(header).lower().strip()
-
-#                 if "amount" in header_lower or "gift" in header_lower:
-#                     cell.number_format = '"$"#,##0.00'
-#                 elif "date" in header_lower:
-#                     cell.number_format = 'mm/dd/yy'
-#                 else:
-#                     cell.number_format = 'General'
-
-#         wb.save(tmp.name)
-
-#         # Stream to memory
-#         output = io.BytesIO()
-#         with open(tmp.name, "rb") as f:
-#             output.write(f.read())
-#         output.seek(0)
-
-#     return output
-
 
 # def export_full_report_with_formatting(arena_df, ezt_df): # CHAT CODE UPDATED
 #     def apply_formatting(ws):
@@ -1470,11 +1381,6 @@ def export_full_report_with_formatting(arena_df, ezt_df):
     matched_output.seek(0)
     matched_wb = load_workbook(matched_output)
 
-    # Create a temporary file path (without holding it open)
-    # tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-    # tmp_path = tmp_file.name
-    # tmp_file.close()
-
     # try:
     wb = Workbook()
     wb.remove(wb.active)
@@ -1495,21 +1401,7 @@ def export_full_report_with_formatting(arena_df, ezt_df):
     wb.save(output)
     output.seek(0)
 
-    # wb.save(tmp_path)
-
-    # output = io.BytesIO()
-    # print("TYPE OF tmp_path:", type(tmp_path))
-    # print("VALUE OF tmp_path:", tmp_path)
-
-    # with open(tmp_path, "rb") as f:
-    #     output.write(f.read())
-    # output.seek(0)
-
-    # finally:
-        # os.unlink(tmp_path)
-
     return output
-
 
 def runMatchContributions():
     arena_ready = 'arena_data' in st.session_state
@@ -1537,22 +1429,22 @@ def runMatchContributions():
             )
 
             # Show all download buttons
-            st.download_button(
-                label="Combined Arena & EZT Batches (.xlsx)",
-                data=merged_excel_sheets,
-                file_name="merged_contributions.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+            # st.download_button(
+            #     label="Combined Arena & EZT Batches (.xlsx)",
+            #     data=merged_excel_sheets,
+            #     file_name="merged_contributions.xlsx",
+            #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            # )
+
+            # st.download_button(
+            #     label="Matched Sheet Only (.xlsx)",
+            #     data=matched_excel_sheet,
+            #     file_name="matched_contributions.xlsx",
+            #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            # )
 
             st.download_button(
-                label="Matched Sheet Only (.xlsx)",
-                data=matched_excel_sheet,
-                file_name="matched_contributions.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-            st.download_button(
-                label="Master Workbook (all sheets together) (.xlsx)",
+                label="Master Workbook (.xlsx)",
                 data=master_excel,
                 file_name="master_contributions_export.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -1650,7 +1542,6 @@ def call_methods():
     elif selected_function == "Assure Download":
         runAssure()
 
-
 # Set streamlit logic 
 def run_gui():
     # Set up session state to track login status
@@ -1683,8 +1574,8 @@ def run_gui():
 
 # Streamit running
 if __name__ == "__main__":
-    #run_gui() # WITH AUTN
-    call_methods() # WITHOUT AUTH
+    run_gui() # WITH AUTN
+    #call_methods() # WITHOUT AUTH
     
 
 # TERMINAL TESTING
@@ -1698,4 +1589,3 @@ if __name__ == "__main__":
     # # ARENA 
     # uploaded_arena = 'DonorMailingTester.xlsx'  # Replace with the path to your test file
     # mainArena(uploaded_arena)
-
