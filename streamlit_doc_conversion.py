@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import re
 import csv
+import os
 from openpyxl import *
 from openpyxl.styles import numbers
 from openpyxl.utils.dataframe import dataframe_to_rows
@@ -775,50 +776,101 @@ def arena_merge(uploaded_arena_files):
 
     return combined_arena_data
 
+# def arena_excel(combined_arena_data): WORKBOOK ERROR
+#     import tempfile, os, io, datetime
+#     from openpyxl import load_workbook
+
+#     combined_arena_data["Contribution Date"] = pd.to_datetime(combined_arena_data["Contribution Date"], errors="coerce")
+#     print("testing arena formatting")
+
+#     # Manually create a temp file and store its path
+#     tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+#     tmp_path = tmp_file.name
+#     tmp_file.close()  # Close so other tools can access it
+
+#     try:
+#         # Write DataFrame to Excel file
+#         with pd.ExcelWriter(tmp_path, engine='openpyxl') as writer:
+#             combined_arena_data.to_excel(writer, index=False, sheet_name="Arena Contributions")
+
+#         # Load and format workbook
+#         wb = load_workbook(tmp_path)
+#         ws = wb.active
+
+#         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+
+#         for row in ws.iter_rows(min_row=2):
+#             for i, header in enumerate(headers):
+#                 cell = row[i]
+#                 header_lower = str(header).lower().strip()
+#                 if header_lower in ["amount", "contribution amount", "total"]:
+#                     cell.number_format = '"$"#,##0.00'
+#                 elif "date" in header_lower:
+#                     if isinstance(cell.value, datetime.datetime):
+#                         cell.number_format = 'MM/DD/YYYY'
+#                     else:
+#                         cell.number_format = 'mm/dd/yy'
+#                 else:
+#                     cell.number_format = 'General'
+
+#         wb.save(tmp_path)
+
+#         # Stream the formatted file to memory
+#         # output = io.BytesIO()
+#         # print("TYPE OF tmp_path:", type(tmp_path))
+#         # print("VALUE OF tmp_path:", tmp_path)
+#         # with open(tmp_path, "rb") as f:
+#         #     output.write(f.read())
+#         # output.seek(0)
+
+#     finally:
+#         os.unlink(tmp_path)  # Clean up
+
+#     return output
+
+
 def arena_excel(combined_arena_data):
+    import io, datetime
+    from openpyxl import Workbook
+
     combined_arena_data["Contribution Date"] = pd.to_datetime(combined_arena_data["Contribution Date"], errors="coerce")
-    print("testing arena formatting")
+    # print("testing arena formatting")
 
-    # Save to a temporary Excel file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-        with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
-            combined_arena_data.to_excel(writer, index=False, sheet_name="Arena Contributions")
+    # Create a new workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Arena Contributions"
 
-        # Open workbook to apply formatting
-        wb = load_workbook(tmp.name)
-        ws = wb.active
+    # Write column headers
+    ws.append(combined_arena_data.columns.tolist())
 
-        # Grab header row to locate each column index
-        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+    # Write data rows
+    for row in combined_arena_data.itertuples(index=False):
+        ws.append(list(row))
 
-        for row in ws.iter_rows(min_row=2):
-            # print("testing this fucker #1")
-            for i, header in enumerate(headers):
-                # print("testing this fucker #2")
-                cell = row[i]
-                header_lower = str(header).lower().strip()
-                if header_lower in ["amount", "contribution amount", "total"]:
-                    # print("testing this fucker #3")
-                    cell.number_format = '"$"#,##0.00'
-                elif "date" in header_lower:
-                    cell.number_format = 'mm/dd/yy'
-                    print("testing datetime without string check")
-                    if isinstance(cell.value, datetime.datetime):  # make sure it’s not a string
-                        print("testing this fucker with a string check")
-                        cell.number_format = 'MM/DD/YYYY'
+    # Apply formatting
+    headers = combined_arena_data.columns.tolist()
+    for row in ws.iter_rows(min_row=2):
+        for i, header in enumerate(headers):
+            cell = row[i]
+            header_lower = str(header).lower().strip()
+            if header_lower in ["amount", "contribution amount", "total"]:
+                cell.number_format = '"$"#,##0.00'
+            elif "date" in header_lower:
+                if isinstance(cell.value, datetime.datetime):
+                    cell.number_format = 'MM/DD/YYYY'
                 else:
-                    # print("testing this fucker #5")
-                    cell.number_format = 'General'
+                    cell.number_format = 'mm/dd/yy'
+            else:
+                cell.number_format = 'General'
 
-        wb.save(tmp.name)
-
-        # Stream it into memory for download
-        output = io.BytesIO()
-        with open(tmp.name, "rb") as f:
-            output.write(f.read())
-        output.seek(0)
+    # Save workbook to a BytesIO stream
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
 
     return output
+
 
 def runArenaContributions():
     # Upload Arena Batch Files (Allow multiple files)
@@ -832,7 +884,7 @@ def runArenaContributions():
         if uploaded_arena_files:
             # Call the process_contrib_arena to handle the file processing and combine the files
             combined_arena_data = arena_merge(uploaded_arena_files)
-            print("Arena Data Imported")
+            # print("Arena Data Imported")
             #print(combined_arena_data.dtypes)
 
             # Store the combined Arena data in session state
@@ -857,7 +909,7 @@ def runArenaContributions():
         
 
 # CONTRIBUTIONS- EASY-TITHE
-def ezt_merge(uploaded_ezt_data):
+def ezt_merge(uploaded_ezt_data): 
     #print("running ezt_merge")
     ezt_data_list = []  # List to store the processed data from each file
     
@@ -881,39 +933,76 @@ def ezt_merge(uploaded_ezt_data):
             combined_ezt_data = pd.concat([combined_ezt_data, raw_contrib_ezt], ignore_index=True)
     return combined_ezt_data
 
+
+# def ezt_excel(combined_ezt_data): WORKBOOK ERROR
+#     # Save to a temporary Excel file
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+#         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
+#             combined_ezt_data.to_excel(writer, index=False, sheet_name="EZT Contributions")
+
+#         # Open workbook to apply formatting
+#         wb = load_workbook(tmp.name)
+#         ws = wb.active
+
+#         # Get the header row (row 1)
+#         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+
+#         for row in ws.iter_rows(min_row=2):  # start from second row to skip header
+#             for i, header in enumerate(headers):
+#                 cell = row[i]
+#                 header_lower = str(header).lower().strip()
+#                 if header_lower == "gross gift":
+#                     cell.number_format = '"$"#,##0.00'
+#                 elif header_lower == "date":
+#                     cell.number_format = 'mm/dd/yy'
+#                 else:
+#                     cell.number_format = 'General'
+
+#         wb.save(tmp.name)
+
+#         # Stream it into memory for download
+#         output = io.BytesIO()
+#         with open(tmp.name, "rb") as f:
+#             output.write(f.read())
+#         output.seek(0)
+
+#     return output
+
+
 def ezt_excel(combined_ezt_data):
-    # Save to a temporary Excel file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-        with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
-            combined_ezt_data.to_excel(writer, index=False, sheet_name="EZT Contributions")
+    import io, datetime
+    from openpyxl import Workbook
 
-        # Open workbook to apply formatting
-        wb = load_workbook(tmp.name)
-        ws = wb.active
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "EZT Contributions"
 
-        # Get the header row (row 1)
-        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+    # Write headers
+    ws.append(combined_ezt_data.columns.tolist())
 
-        for row in ws.iter_rows(min_row=2):  # start from second row to skip header
-            for i, header in enumerate(headers):
-                cell = row[i]
-                header_lower = str(header).lower().strip()
-                if header_lower == "gross gift":
-                    cell.number_format = '"$"#,##0.00'
-                elif header_lower == "date":
-                    cell.number_format = 'mm/dd/yy'
-                else:
-                    cell.number_format = 'General'
+    # Write data rows
+    for row in combined_ezt_data.itertuples(index=False):
+        ws.append(list(row))
 
-        wb.save(tmp.name)
+    # Apply formatting
+    headers = combined_ezt_data.columns.tolist()
+    for row in ws.iter_rows(min_row=2):
+        for i, header in enumerate(headers):
+            cell = row[i]
+            header_lower = str(header).lower().strip()
+            if header_lower == "gross gift":
+                cell.number_format = '"$"#,##0.00'
+            elif header_lower == "date":
+                cell.number_format = 'mm/dd/yy'
+            else:
+                cell.number_format = 'General'
 
-        # Stream it into memory for download
-        output = io.BytesIO()
-        with open(tmp.name, "rb") as f:
-            output.write(f.read())
-        output.seek(0)
-
+    # Save workbook to memory
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
     return output
+
 
 def runEZTContributions():
     #st.write("EasyTithe Batch File Upload")
@@ -927,7 +1016,7 @@ def runEZTContributions():
     #Run the script when the button is clicked for EZT file
     if st.button("Import EasyTithe Batches"):
         if uploaded_ezt_files:
-            print("EZT Data Imported")
+            # print("EZT Data Imported")
             # Call the ezt_contributions to handle the file processing and combine the files
             combined_ezt_data = ezt_merge(uploaded_ezt_files)
             #print("Combined EZT data")
@@ -1018,12 +1107,13 @@ def matching_logic(arena_df, ezt_df):
     ezt_only = ezt_only[ordered_cols]
 
     # Build categorized Excel with labeled sections
-    return categorized_matches(
+    return categorized_matches(  # just return the file
         match_by_id_df=match_by_transaction_id,
-        match_by_donor_df=pd.DataFrame(),  # Placeholder for future donor matching
+        match_by_donor_df=pd.DataFrame(),
         unmatched_df=pd.concat([arena_only, ezt_only], ignore_index=True)
     )
     # return match_by_transaction_id, pd.DataFrame(), pd.concat([arena_only, ezt_only], ignore_index=True)
+
 
 # def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df):
 #     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
@@ -1062,93 +1152,181 @@ def matching_logic(arena_df, ezt_df):
 
 #     return final_output
 
-def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Matched Contributions"
+# def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df): # WORKBOOK ERROR
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+#         wb = Workbook()
+#         ws = wb.active
+#         ws.title = "Matched Contributions"
         
-        def write_section(header, df, start_row):
-            # KEY FIX: Use DataFrame column count instead of ws.max_column
-            num_columns = max(len(df.columns), 1)  # Ensure at least 1 column
+#         def write_section(header, df, start_row):
+#             # KEY FIX: Use DataFrame column count instead of ws.max_column
+#             num_columns = max(len(df.columns), 1)  # Ensure at least 1 column
             
-            # Write title row - ONLY populate column A
-            for col_idx in range(1, num_columns + 1):
-                cell = ws.cell(row=start_row, column=col_idx)
-                if col_idx == 1:
-                    cell.value = header
-                    #cell.font = Font(bold=True)
-                else:
-                    # Explicitly clear other cells in header row
-                    cell.value = None
+#             # Write title row - ONLY populate column A
+#             for col_idx in range(1, num_columns + 1):
+#                 cell = ws.cell(row=start_row, column=col_idx)
+#                 if col_idx == 1:
+#                     cell.value = header
+#                     #cell.font = Font(bold=True)
+#                 else:
+#                     # Explicitly clear other cells in header row
+#                     cell.value = None
 
-            # Write DataFrame content
-            header_row = start_row + 1
-            for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=header_row):
-                for c_idx, value in enumerate(row, start=1):
-                    cell = ws.cell(row=r_idx, column=c_idx, value=value)
-                    if r_idx == header_row:  # Bold column headers
-                        cell.font = Font(bold=True)
+#             # Write DataFrame content
+#             header_row = start_row + 1
+#             for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=header_row):
+#                 for c_idx, value in enumerate(row, start=1):
+#                     cell = ws.cell(row=r_idx, column=c_idx, value=value)
+#                     if r_idx == header_row:  # Bold column headers
+#                         cell.font = Font(bold=True)
             
-            return r_idx + 2  # Add blank row between sections
+#             return r_idx + 2  # Add blank row between sections
 
-        row_cursor = 1
-        row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
+#         row_cursor = 1
+#         row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
         
-        if not match_by_donor_df.empty:
-            row_cursor = write_section("Matched by Donor Info", match_by_donor_df, row_cursor)
+#         if not match_by_donor_df.empty:
+#             row_cursor = write_section("Matched by Donor Info", match_by_donor_df, row_cursor)
             
-        row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
+#         row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
 
-        wb.save(tmp.name)
-        with open(tmp.name, "rb") as f:
-            final_output = f.read()
+#         wb.save(tmp.name)
+#         with open(tmp.name, "rb") as f:
+#             final_output = f.read()
 
-    return final_output
+#     return final_output
       
-# CONTRIBUTIONS - EXPORTING
-def export_combined_excel(arena_df, ezt_df):
-    # Format and return as .xlsx binary output
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-        with pd.ExcelWriter(tmp.name, engine="openpyxl") as writer:
-            # Write Arena data
-            arena_df.to_excel(writer, index=False, sheet_name="Arena Contributions")
-            # Write EZT data
-            ezt_df.to_excel(writer, index=False, sheet_name="EZT Contributions")
 
-        # Now format both sheets
-        wb = load_workbook(tmp.name)
+def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df):
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from openpyxl.utils.dataframe import dataframe_to_rows
 
-        for sheet_name, df in {
-            "Arena Contributions": arena_df,
-            "EZT Contributions": ezt_df
-        }.items():
-            ws = wb[sheet_name]
-            headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
-            for row in ws.iter_rows(min_row=2):
-                for i, header in enumerate(headers):
-                    cell = row[i]
-                    header_lower = str(header).lower().strip()
-                    if header_lower in ["gross gift", "amount", "contribution amount", "total"]:
-                        cell.number_format = '"$"#,##0.00'
-                    elif "date" in header_lower:
-                        cell.number_format = "mm/dd/yy"
-                    else:
-                        cell.number_format = "General"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Matched Contributions"
 
-        wb.save(tmp.name)
+    def write_section(header, df, start_row):
+        num_columns = max(len(df.columns), 1)
 
-        # now convert to correct output file type
-        output = io.BytesIO()
-        with open(tmp.name, "rb") as f:
-            output.write(f.read())
-        output.seek(0)
+        # Write title row
+        for col_idx in range(1, num_columns + 1):
+            cell = ws.cell(row=start_row, column=col_idx)
+            if col_idx == 1:
+                cell.value = header
+            else:
+                cell.value = None
 
+        # Write DataFrame contents
+        header_row = start_row + 1
+        for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=header_row):
+            for c_idx, value in enumerate(row, start=1):
+                cell = ws.cell(row=r_idx, column=c_idx, value=value)
+                if r_idx == header_row:
+                    cell.font = Font(bold=True)
+
+        return r_idx + 2
+
+    row_cursor = 1
+    row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
+
+    if not match_by_donor_df.empty:
+        row_cursor = write_section("Matched by Donor Info", match_by_donor_df, row_cursor)
+
+    row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
+
+    # Save workbook to memory
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
     return output
 
+
+# # CONTRIBUTIONS - EXPORTING
+# def export_combined_excel(arena_df, ezt_df):  WORKBOOK ERROR
+#     # Format and return as .xlsx binary output
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+#         with pd.ExcelWriter(tmp.name, engine="openpyxl") as writer:
+#             # Write Arena data
+#             arena_df.to_excel(writer, index=False, sheet_name="Arena Contributions")
+#             # Write EZT data
+#             ezt_df.to_excel(writer, index=False, sheet_name="EZT Contributions")
+
+#         # Now format both sheets
+#         wb = load_workbook(tmp.name)
+
+#         for sheet_name, df in {
+#             "Arena Contributions": arena_df,
+#             "EZT Contributions": ezt_df
+#         }.items():
+#             ws = wb[sheet_name]
+#             headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+#             for row in ws.iter_rows(min_row=2):
+#                 for i, header in enumerate(headers):
+#                     cell = row[i]
+#                     header_lower = str(header).lower().strip()
+#                     if header_lower in ["gross gift", "amount", "contribution amount", "total"]:
+#                         cell.number_format = '"$"#,##0.00'
+#                     elif "date" in header_lower:
+#                         cell.number_format = "mm/dd/yy"
+#                     else:
+#                         cell.number_format = "General"
+
+#         wb.save(tmp.name)
+
+#         # now convert to correct output file type
+#         output = io.BytesIO()
+#         with open(tmp.name, "rb") as f:
+#             output.write(f.read())
+#         output.seek(0)
+
+#     return output
+
+def export_combined_excel(arena_df, ezt_df):
+    import io
+    import datetime
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    wb.remove(wb.active)  # Remove default sheet
+
+    def write_and_format_sheet(df, title):
+        ws = wb.create_sheet(title=title)
+        ws.append(df.columns.tolist())
+        for row in df.itertuples(index=False):
+            ws.append(list(row))
+
+        headers = df.columns.tolist()
+        for row in ws.iter_rows(min_row=2):
+            for i, header in enumerate(headers):
+                cell = row[i]
+                header_lower = str(header).lower().strip()
+                if header_lower in ["gross gift", "amount", "contribution amount", "total"]:
+                    cell.number_format = '"$"#,##0.00'
+                elif "date" in header_lower:
+                    cell.number_format = "mm/dd/yy"
+                else:
+                    cell.number_format = "General"
+
+    # Add both sheets
+    write_and_format_sheet(arena_df, "Arena Contributions")
+    write_and_format_sheet(ezt_df, "EZT Contributions")
+
+    # Save to memory
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+# def export_matched_excel(arena_df, ezt_df):
+#     match_by_id_df, match_by_donor_df, unmatched_df = matching_logic(arena_df, ezt_df)
+#     return categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df)
+
+
 def export_matched_excel(arena_df, ezt_df):
-    match_by_id_df, match_by_donor_df, unmatched_df = matching_logic(arena_df, ezt_df)
-    return categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df)
+    return matching_logic(arena_df, ezt_df)  # no unpacking
 
 
 # def export_full_report(arena_df, ezt_df, matched_data):
@@ -1191,71 +1369,72 @@ def export_matched_excel(arena_df, ezt_df):
 
 #     return output
 
-def export_full_report_with_formatting(arena_df, ezt_df): # CHAT CODE UPDATED
-    def apply_formatting(ws):
-        print("apply_formatting method acccessed")
-        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
-        for row in ws.iter_rows(min_row=2):
-            #print("outer for-loop accessed")
-            for i, header in enumerate(headers):
-                cell = row[i]
-                header_lower = str(header).lower().strip()
-                if header_lower in ["gross gift", "amount", "contribution amount", "total"]:
-                    #print("matching currency header found")
-                    cell.number_format = '"$"#,##0.00'
-                elif "date" in header_lower:
-                    print("matching date header found")
-                    cell.number_format = "mm/dd/yy"
-                else:
-                    cell.number_format = "General"
 
-    # Generate formatted Excel files in memory
-    arena_output = arena_excel(arena_df)
-    ezt_output = ezt_excel(ezt_df)
-    matched_output = export_matched_excel(arena_df, ezt_df)
+# def export_full_report_with_formatting(arena_df, ezt_df): # CHAT CODE UPDATED
+#     def apply_formatting(ws):
+#         print("apply_formatting method acccessed")
+#         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+#         for row in ws.iter_rows(min_row=2):
+#             #print("outer for-loop accessed")
+#             for i, header in enumerate(headers):
+#                 cell = row[i]
+#                 header_lower = str(header).lower().strip()
+#                 if header_lower in ["gross gift", "amount", "contribution amount", "total"]:
+#                     #print("matching currency header found")
+#                     cell.number_format = '"$"#,##0.00'
+#                 elif "date" in header_lower:
+#                     print("matching date header found")
+#                     cell.number_format = "mm/dd/yy"
+#                 else:
+#                     cell.number_format = "General"
 
-    # Load formatted workbooks
-    arena_wb = load_workbook(arena_output)
-    ezt_wb = load_workbook(ezt_output)
-    matched_wb = load_workbook(matched_output)
+#     # Generate formatted Excel files in memory
+#     arena_output = arena_excel(arena_df)
+#     ezt_output = ezt_excel(ezt_df)
+#     matched_output = export_matched_excel(arena_df, ezt_df)
 
-    # Create a new workbook to merge all sheets
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-        with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
-            # Copy matched workbook sheets
-            for sheet in matched_wb.sheetnames:
-                ws = matched_wb[sheet]
-                apply_formatting(ws)
-                df = pd.DataFrame(ws.values)
-                df.columns = df.iloc[0]
-                df = df[1:]
-                df.to_excel(writer, sheet_name=sheet, index=False)
+#     # Load formatted workbooks
+#     arena_wb = load_workbook(arena_output)
+#     ezt_wb = load_workbook(ezt_output)
+#     matched_wb = load_workbook(matched_output)
 
-            # Copy Arena workbook sheets
-            for sheet in arena_wb.sheetnames:
-                ws = arena_wb[sheet]
-                apply_formatting(ws)
-                df = pd.DataFrame(ws.values)
-                df.columns = df.iloc[0]
-                df = df[1:]
-                df.to_excel(writer, sheet_name=sheet, index=False)
+#     # Create a new workbook to merge all sheets
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+#         with pd.ExcelWriter(tmp.name, engine='openpyxl') as writer:
+#             # Copy matched workbook sheets
+#             for sheet in matched_wb.sheetnames:
+#                 ws = matched_wb[sheet]
+#                 apply_formatting(ws)
+#                 df = pd.DataFrame(ws.values)
+#                 df.columns = df.iloc[0]
+#                 df = df[1:]
+#                 df.to_excel(writer, sheet_name=sheet, index=False)
 
-            # Copy EZT workbook sheets
-            for sheet in ezt_wb.sheetnames:
-                ws = ezt_wb[sheet]
-                apply_formatting(ws)
-                df = pd.DataFrame(ws.values)
-                df.columns = df.iloc[0]
-                df = df[1:]
-                df.to_excel(writer, sheet_name=sheet, index=False)
+#             # Copy Arena workbook sheets
+#             for sheet in arena_wb.sheetnames:
+#                 ws = arena_wb[sheet]
+#                 apply_formatting(ws)
+#                 df = pd.DataFrame(ws.values)
+#                 df.columns = df.iloc[0]
+#                 df = df[1:]
+#                 df.to_excel(writer, sheet_name=sheet, index=False)
 
-        # Finalize output
-        output = io.BytesIO()
-        with open(tmp.name, "rb") as f:
-            output.write(f.read())
-        output.seek(0)
+#             # Copy EZT workbook sheets
+#             for sheet in ezt_wb.sheetnames:
+#                 ws = ezt_wb[sheet]
+#                 apply_formatting(ws)
+#                 df = pd.DataFrame(ws.values)
+#                 df.columns = df.iloc[0]
+#                 df = df[1:]
+#                 df.to_excel(writer, sheet_name=sheet, index=False)
 
-    return output
+#         # Finalize output
+#         output = io.BytesIO()
+#         with open(tmp.name, "rb") as f:
+#             output.write(f.read())
+#         output.seek(0)
+
+#     return output
 
 def export_full_report_with_formatting(arena_df, ezt_df):
     def apply_formatting(ws):
@@ -1291,32 +1470,46 @@ def export_full_report_with_formatting(arena_df, ezt_df):
     matched_output.seek(0)
     matched_wb = load_workbook(matched_output)
 
-    # Create a new workbook and copy all sheets
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-        wb = Workbook()
-        # Remove the default sheet created by openpyxl
-        wb.remove(wb.active)
+    # Create a temporary file path (without holding it open)
+    # tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+    # tmp_path = tmp_file.name
+    # tmp_file.close()
 
-        for sheet in matched_wb.sheetnames:
-            apply_formatting(matched_wb[sheet])
-            copy_sheet_with_formatting(matched_wb[sheet], wb, sheet)
+    # try:
+    wb = Workbook()
+    wb.remove(wb.active)
 
-        for sheet in arena_wb.sheetnames:
-            apply_formatting(arena_wb[sheet])
-            copy_sheet_with_formatting(arena_wb[sheet], wb, sheet)
+    for sheet in matched_wb.sheetnames:
+        apply_formatting(matched_wb[sheet])
+        copy_sheet_with_formatting(matched_wb[sheet], wb, sheet)
 
-        for sheet in ezt_wb.sheetnames:
-            apply_formatting(ezt_wb[sheet])
-            copy_sheet_with_formatting(ezt_wb[sheet], wb, sheet)
+    for sheet in arena_wb.sheetnames:
+        apply_formatting(arena_wb[sheet])
+        copy_sheet_with_formatting(arena_wb[sheet], wb, sheet)
 
-        wb.save(tmp.name)
+    for sheet in ezt_wb.sheetnames:
+        apply_formatting(ezt_wb[sheet])
+        copy_sheet_with_formatting(ezt_wb[sheet], wb, sheet)
 
-        # Stream result to memory
-        output = io.BytesIO()
-        with open(tmp.name, "rb") as f:
-            output = io.BytesIO(f.read())
+    output = io.BytesIO()
+    wb.save(output)
     output.seek(0)
+
+    # wb.save(tmp_path)
+
+    # output = io.BytesIO()
+    # print("TYPE OF tmp_path:", type(tmp_path))
+    # print("VALUE OF tmp_path:", tmp_path)
+
+    # with open(tmp_path, "rb") as f:
+    #     output.write(f.read())
+    # output.seek(0)
+
+    # finally:
+        # os.unlink(tmp_path)
+
     return output
+
 
 def runMatchContributions():
     arena_ready = 'arena_data' in st.session_state
@@ -1410,54 +1603,6 @@ def authenticate(username, password):
 #     elif file_type == 'Arena Mailing List':
 #         runArenaMain()
 
-# def call_methods(): #new setup first try
-#     st.title("MPC File Import & Conversion")
-
-#     selected_function = None
-
-#     with st.sidebar:
-#         st.header("Tools Menu")
-
-#         st.markdown("### 📋 Arena List Formatting")
-#         if st.button("📨 Arena Mailing List"):
-#             selected_function = "Arena Mailing List"
-#         if st.button("👤 First-Time Givers Report"):
-#             selected_function = "First-Time Givers Report"
-
-#         st.markdown("### 📂 Contributions")
-#         if st.button("🧾 Contribution Reports"):
-#             selected_function = "Contribution Reports"
-
-#         st.markdown("### 🧮 Journey Entry Creation")
-#         if st.button("💼 Payroll Workbook"):
-#             selected_function = "Payroll Workbook"
-#         if st.button("💊 Cigna Workbook"):
-#             selected_function = "Cigna Workbook"
-
-#     # Main view router
-#     if selected_function == "Contribution Reports":
-#         runContributions()
-#     elif selected_function == "Arena Mailing List":
-#         runMailingMain()
-#     elif selected_function == "First-Time Givers Report":
-#         runFTGmain()
-#     elif selected_function == "Payroll Workbook":
-#         runPayroll()
-#     elif selected_function == "Cigna Workbook":
-#         runCigna()
- 
-
-#     # Main panel routing
-#     if selected_function == "Contribution Reports":
-#         runContributions()
-#     elif selected_function == "Arena Mailing List":
-#         runMailingMain()
-#     elif selected_function == "First-Time Givers Report":
-#         runFTGmain()
-#     elif selected_function == "Payroll Workbook":
-#         runPayroll()
-#     elif selected_function == "Cigna Download":
-#         runCigna()
 
 def call_methods():
     st.title("MP File Import & Conversion App")
@@ -1538,8 +1683,8 @@ def run_gui():
 
 # Streamit running
 if __name__ == "__main__":
-    run_gui() # WITH AUTN
-    #call_methods() # WITHOUT AUTH
+    #run_gui() # WITH AUTN
+    call_methods() # WITHOUT AUTH
     
 
 # TERMINAL TESTING
