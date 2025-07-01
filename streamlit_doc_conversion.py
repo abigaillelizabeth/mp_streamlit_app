@@ -30,14 +30,14 @@ def process_mailing_data(input_file):
     # remove extra columns
     raw_arena = raw_arena.iloc[:, list(range(0, 15)) + [16]]
     #print(raw_arena.head())
-
+    #print(raw_arena.head(3))
     # Group by Family Id (column 0) and Person ID (column 1)
     raw_arena.iloc[1:, 15] = raw_arena.iloc[1:, 15].astype(float)
     grouped_arena = raw_arena.groupby([0, 1], as_index=False).agg({
         2: 'first',    # 'Last Name'
         3: 'first',    # 'First Name'
-        4: 'first',    # 'Donor Title'
-        5: 'first',    # 'Nick Name'
+        4: 'first',    # 'Nick Name'
+        5: 'first',    # 'Donor Title'
         6: 'first',    # 'Spouse Title'
         7: 'first',    # 'Spouse Last Name' 
         8: 'first',    # 'Spouse First Name' 
@@ -51,7 +51,7 @@ def process_mailing_data(input_file):
     })
 
     # Rename the columns for clarity
-    grouped_arena.columns = ['Family Id', 'Person ID', 'Last Name', 'First Name', 'Title', 'Nick Name', 
+    grouped_arena.columns = ['Family Id', 'Person ID', 'Last Name', 'First Name', 'Nick Name', 'Title', 
                              'Spouse Title', 'Spouse Last Name', 'Spouse First Name', 'Spouse Nick Name', 
                              'Address', 'City', 'State', 'Zip', 'Email', 'Total Contribution Fund Amount']
     # print(grouped_arena.shape)
