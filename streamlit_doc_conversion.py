@@ -332,7 +332,9 @@ def process_assure_file(input_file):
     raw_Assure["Credit"] = raw_Assure["Credit"].fillna(0)
     raw_Assure["Description"] = raw_Assure["Description"].fillna("")
 
-    return raw_Assure
+    final_Assure = raw_Assure[~((raw_Assure["Debit"] > 0) & (raw_Assure["Credit"] > 0))]
+
+    return final_Assure
 
 def create_assure_txt(df, journal_date, accounting_period):
     output = io.StringIO()
