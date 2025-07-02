@@ -339,11 +339,11 @@ def process_assure_file(input_file):
 def create_assure_txt(df, journal_date, accounting_period):
     output = io.StringIO()
 
-    co_num = "0001"
-    fund_num = "00000"
+    co_num = "001"
+    fund_num = "000"
     journal_type = "PR"
     journal_num = "00000"
-    unused_field1 = "00000"
+    unused_field1 = "0"
     unused_field3 = "000"
     empty_field = ""
     date_str = journal_date
