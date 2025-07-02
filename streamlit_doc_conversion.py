@@ -2,8 +2,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import re
 import csv
+import re
+import io
 import os
 from openpyxl import *
 from openpyxl.styles import numbers
@@ -11,12 +12,9 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from collections import defaultdict
 from openpyxl.styles import Font
 import tempfile
-import datetime
-import io
-
-#import os
-#import toml
-#import zipfile
+from datetime import *
+import toml
+import zipfile
 
 
 # ARENA METHODS  
@@ -179,7 +177,7 @@ def create_ftg_file(processed_ftg_data, is_streamlit=True):
         final_output = io.BytesIO()
         wb.save(final_output)
 
-        # ⚠️ Must reset before returning
+        # Must reset before returning
         final_output.seek(0)
         return final_output
 
@@ -315,17 +313,134 @@ def runFTG():
 
 # ASSURE CONVERSION METHODS
 def process_assure_file(input_file):
-    return FileExistsError
+    # Read in the Assure data
+    raw_Assure = pd.read_excel(input_file, sheet_name=0)
+    print(raw_Assure.head())
+    print(raw_Assure.shape)
 
-def create_assure_file(processed_assure_data, is_streamlit = True):
-    return FileExistsError
+    # Drop rows that are completely empty
+    raw_Assure.dropna(how='all', inplace=True)
+
+    # Rename columns for consistency
+    raw_Assure.columns = [col.strip() for col in raw_Assure.columns]
+
+    # Keep only rows where either Debit or Credit has a value
+    raw_Assure = raw_Assure[(raw_Assure["Debit"].notna()) | (raw_Assure["Credit"].notna())]
+
+    # Fill NaNs with empty string or 0 where appropriate
+    raw_Assure["Debit"] = raw_Assure["Debit"].fillna(0)
+    raw_Assure["Credit"] = raw_Assure["Credit"].fillna(0)
+    raw_Assure["Description"] = raw_Assure["Description"].fillna("")
+
+    return raw_Assure
+
+def create_assure_txt(df, journal_date, accounting_period):
+    output = io.StringIO()
+
+    co_num = "001"
+    fund_num = "000"
+    journal_type = "PR"
+    journal_num = "00000"
+    unused_field1 = "0"
+    unused_field2 = "000"
+    empty_field = ""
+    date_str = journal_date
+
+    for _, row in df.iterrows():
+        # Parse amount (positive for debit, negative for credit)
+        debit = row.get("Debit", 0)
+        credit = row.get("Credit", 0)
+
+        if pd.notna(debit) and float(debit) != 0:
+            amount = int(round(float(debit) * 100))
+        elif pd.notna(credit) and float(credit) != 0:
+            amount = -int(round(float(credit) * 100))
+        else:
+            continue  # skip if neither debit nor credit present
+
+        # Format field 2: full journal ID
+        field2 = f"{co_num}{fund_num}{accounting_period.zfill(2)}{journal_type}{journal_num}"
+
+        # Format Dept & Acct # (zero if not used)
+        gl_number = str(row.get("GL Number", ""))
+        if "-" in gl_number:
+            dept, acct = gl_number.split("-")
+            dept = dept.zfill(3)
+            acct = acct.zfill(6)  # Pad account number to 6 digits (e.g. 5100 → 005100)
+            account_full = f"{dept}{acct}"  # e.g. "021005100"
+        else:
+            account_full = "000000000"  # fallback if formatting is wrong
+
+        # Build line of 9 fields
+        line = [
+            unused_field1,
+            field2,
+            unused_field2,
+            date_str,
+            str(row.get("Description", "")),
+            empty_field,
+            account_full,
+            str(amount),
+            empty_field,
+        ]
+
+        output.write(",".join(f'"{str(field)}"' for field in line) + "\n")
+
+        # ✅ Return as BytesIO (binary) or StringIO (text) depending on context
+        # ✅ Return correct type depending on context
+    if st:
+        assure_file = io.BytesIO(output.getvalue().encode("utf-8"))
+    else:
+        assure_file = io.StringIO(output.getvalue())
+
+    assure_file.seek(0)
+    return assure_file
 
 def mainAssure(uploaded_file):
-    return FileExistsError
+    processed_assure = process_assure_file(uploaded_file)  # Use your cleaning logic
+    print(processed_assure.head())
+    print(processed_assure.shape)
+
+    journal_date = "010125"
+    accounting_period = "01"
+    
+    assure_final = create_assure_txt(processed_assure, journal_date, accounting_period)
+    print(assure_final)
+    print("File created successfully. Ready for download.")
+
+    #output_path = "/Users/AbigailClark1/Documents/mp_work/data_scripts/python_scripts/Assure_JE_Output.txt"
+    #with open(output_path, "wb") as f:
+    #    f.write(assure_final.getvalue())
+    #print(f"Assure JE file saved to: {output_path}")
+
+    return assure_final
 
 def runAssure():
-    return FileExistsError
+    st.subheader("Assure GL File Upload")
+    uploaded_file = st.file_uploader("Upload an excel assure file", type="xlsx", key="assure_upload")
 
+    journal_date = st.text_input("Journal Date:", value="010125")
+    accounting_period = st.text_input("Accounting Period:", value="01")
+
+    # Run the script when the button is pressed
+    if st.button("Generate Assure JE File"):
+        if uploaded_file is not None:
+            # Process the payroll data
+            processed_data = process_assure_file(uploaded_file)
+            
+            # Create the output file
+            output_file = create_assure_txt(processed_data, journal_date, accounting_period)
+            st.success("Assure file processed and ready for download!")
+
+            # Provide download button for the payroll output
+            st.download_button(
+                label="Download Assure Journal Entry",
+                data=output_file,
+                file_name="GLTRN2000.txt",
+                mime="text/csv"
+            )
+        else:
+            st.error("Please upload an Assure file.")
 
 
 # PAYROLL METHODS
@@ -373,8 +488,9 @@ def process_pr_data(input_file):
     pr_data = PR_4
 
     return pr_data
+
 # Function to generate the output data
-def create_pr_file (processed_pr_data, journal_date, accounting_period, description_1):
+def create_pr_txt (processed_pr_data, journal_date, accounting_period, description_1):
     print("now entering output file creation")
     # Creating debit lines
     debit_lines = processed_pr_data[processed_pr_data['DEBITS'].notna()].copy()  # Filter rows where DEBITS is not NaN
@@ -419,6 +535,7 @@ def create_pr_file (processed_pr_data, journal_date, accounting_period, descript
     pr_file.seek(0)  # Go to the beginning of the in-memory file
 
     return pr_file
+
 # Payroll Main
 def mainPR(uploaded_file):
     processed_data = process_pr_data(uploaded_file)
@@ -428,7 +545,7 @@ def mainPR(uploaded_file):
     journal_date = "010125"
     accounting_period = "01"
     description_1 = "Payroll Entry"
-    pr_final = create_pr_file(processed_data, journal_date, accounting_period, description_1)
+    pr_final = create_pr_txt(processed_data, journal_date, accounting_period, description_1)
 
     # Print & save the output as needed
     print("File created successfully. Ready for download.")
@@ -453,7 +570,7 @@ def runPayroll():
             processed_data = process_pr_data(uploaded_file)
             
             # Create the output file
-            output_file = create_pr_file(processed_data, journal_date, accounting_period, description_1)
+            output_file = create_pr_txt(processed_data, journal_date, accounting_period, description_1)
 
             st.success("Payroll file processed and ready for download!")
 
@@ -528,7 +645,7 @@ def process_cig_data(input_file):
     cig_data = data_csv
     return cig_data  
 # Function to generate the output data
-def create_cig_file(processed_cig_data, journal_date, accounting_period, description_1, credit_acct):
+def create_cig_txt(processed_cig_data, journal_date, accounting_period, description_1, credit_acct):
     # Summarizing the data by Dept.Acct
     summary_data = processed_cig_data.groupby('Dept.Acct').agg(
         Sum_Medical=('Medical', 'sum'),
@@ -604,11 +721,10 @@ def mainCig(uploaded_file):
     accounting_period = "01"
     description_1 = "Cigna Entry"
     credit_acct = "1130"
-    cig_final = create_cig_file(processed_data, journal_date, accounting_period, description_1, credit_acct)
+    cig_final = create_cig_txt(processed_data, journal_date, accounting_period, description_1, credit_acct)
 
     # Print & save the output as needed
     print("File created successfully. Ready for download.")
-
 
     return cig_final
 # Function to run cigna methods  
@@ -628,7 +744,7 @@ def runCigna():
             processed_data = process_cig_data(uploaded_file)
             
             # Create the output file
-            output_file = create_cig_file(processed_data, journal_date, accounting_period, description_1, credit_acct)
+            output_file = create_cig_txt(processed_data, journal_date, accounting_period, description_1, credit_acct)
 
             st.success("Cigna file processed and ready for download!")
 
@@ -1280,6 +1396,7 @@ def export_combined_excel(arena_df, ezt_df):
 
 def export_matched_excel(arena_df, ezt_df):
     return matching_logic(arena_df, ezt_df)  # no unpacking
+    #return categorized_matces(match_by_id, match_by_donor_df, unmatched_df = matching_logic(arena_df, ezt_df))
 
 # def export_full_report_with_formatting(arena_df, ezt_df): # CHAT CODE UPDATED
 #     def apply_formatting(ws):
@@ -1571,21 +1688,23 @@ def run_gui():
     else:
         call_methods()
 
-
 # Streamit running
 if __name__ == "__main__":
-    run_gui() # WITH AUTN
-    #call_methods() # WITHOUT AUTH
+    #run_gui() # WITH AUTH
+    call_methods() # WITHOUT AUTH
     
 
 # TERMINAL TESTING
 # if __name__ == "__main__":
-    # # PAYROLL
-    # uploaded_PR = 'PR Journal Entry_03.25.2025-1.xlsx'  # Replace with the path to your test file
-    # mainPR(uploaded_PR)
-    # # CIGNA
-    # uploaded_Cig = 'GroupPremiumStatementRpt_03.2025.xlsx'  # Replace with the path to your test file
-    # mainCig(uploaded_Cig)
-    # # ARENA 
-    # uploaded_arena = 'DonorMailingTester.xlsx'  # Replace with the path to your test file
-    # mainArena(uploaded_arena)
+#     # PAYROLL
+#     uploaded_PR = 'PR Journal Entry_03.25.2025-1.xlsx'  # Replace with the path to your test file
+#     mainPR(uploaded_PR)
+#     # CIGNA
+#     uploaded_Cig = 'GroupPremiumStatementRpt_03.2025.xlsx'  # Replace with the path to your test file
+#     mainCig(uploaded_Cig)
+#     # ARENA 
+#     uploaded_arena = 'DonorMailingTester.xlsx'  # Replace with the path to your test file
+#     mainMailing(uploaded_arena)
+#     # ASSURE
+#     uploaded_Assure = 'Assure Test 06.03.2025-1.xlsx' # Replace with the path to your test file
+#     mainAssure(uploaded_Assure)
