@@ -1619,6 +1619,12 @@ def call_methods():
     st.title("MP File Import & Conversion App")
 
     with st.sidebar:
+        if st.button("🔒 Logout"):
+            st.session_state.logged_in = False
+            st.session_state.selected_function = None
+            st.rerun()
+        
+        st.markdown("---")
         st.header("Tools Menu")
 
         st.markdown("### 📂 Contributions")
@@ -1638,12 +1644,6 @@ def call_methods():
             st.session_state.selected_function = "Cigna Workbook"
         if st.button("⏳Assure Download"):
             st.session_state.selected_function = "Assure Download"
-
-        st.markdown("---")
-        if st.button("🔒 Logout"):
-            st.session_state.logged_in = False
-            st.session_state.selected_function = None
-            st.rerun()
 
     # Show the selected tool
     selected_function = st.session_state.get("selected_function")
@@ -1692,8 +1692,8 @@ def run_gui():
 
 # Streamit running
 if __name__ == "__main__":
-    #run_gui() # WITH AUTH
-    call_methods() # WITHOUT AUTH
+    run_gui() # WITH AUTH
+    #call_methods() # WITHOUT AUTH
     
 
 # TERMINAL TESTING
