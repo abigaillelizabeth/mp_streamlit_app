@@ -339,12 +339,12 @@ def process_assure_file(input_file):
 def create_assure_txt(df, journal_date, accounting_period):
     output = io.StringIO()
 
-    co_num = "001"
-    fund_num = "000"
+    co_num = "0001"
+    fund_num = "00000"
     journal_type = "PR"
     journal_num = "00000"
-    unused_field1 = "0"
-    unused_field2 = "000"
+    unused_field1 = "00000"
+    unused_field3 = "000"
     empty_field = ""
     date_str = journal_date
 
@@ -368,7 +368,7 @@ def create_assure_txt(df, journal_date, accounting_period):
         if "-" in gl_number:
             dept, acct = gl_number.split("-")
             dept = dept.zfill(3)
-            acct = acct.zfill(6)  # Pad account number to 6 digits (e.g. 5100 → 005100)
+            acct = acct.zfill(9)  # Pad account number to 6 digits (e.g. 5100 → 005100)
             account_full = f"{dept}{acct}"  # e.g. "021005100"
         else:
             account_full = "000000000"  # fallback if formatting is wrong
@@ -377,9 +377,10 @@ def create_assure_txt(df, journal_date, accounting_period):
         line = [
             unused_field1,
             field2,
-            unused_field2,
+            unused_field3,
             date_str,
-            str(row.get("Description", "")),
+            #str(row.get("Description", "")),
+            str(row.get("Description")),
             empty_field,
             account_full,
             str(amount),
