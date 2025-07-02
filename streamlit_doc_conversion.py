@@ -347,7 +347,7 @@ def create_assure_txt(df, journal_date, accounting_period):
     unused_field3 = "000"
     empty_field = ""
     date_str = journal_date
-
+    lines = []
     for _, row in df.iterrows():
         # Parse amount (positive for debit, negative for credit)
         debit = row.get("Debit", 0)
@@ -387,8 +387,10 @@ def create_assure_txt(df, journal_date, accounting_period):
             empty_field,
         ]
 
-        output.write(",".join(f'"{str(field)}"' for field in line) + "\n")
+        lines.append(",".join(f'"{str(field)}"' for field in line))
 
+    output.write("\r\n".join(lines))
+    
         # ✅ Return as BytesIO (binary) or StringIO (text) depending on context
         # ✅ Return correct type depending on context
     if st:
