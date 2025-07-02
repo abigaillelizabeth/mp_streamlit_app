@@ -390,7 +390,7 @@ def create_assure_txt(df, journal_date, accounting_period):
         lines.append(",".join(f'"{str(field)}"' for field in line))
 
     output.write("\r\n".join(lines))
-    
+
         # ✅ Return as BytesIO (binary) or StringIO (text) depending on context
         # ✅ Return correct type depending on context
     if st:
@@ -442,7 +442,7 @@ def runAssure():
                 label="Download Assure Journal Entry",
                 data=output_file,
                 file_name="GLTRN2000.txt",
-                mime="text/csv"
+                mime="text/plain"
             )
         else:
             st.error("Please upload an Assure file.")
