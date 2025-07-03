@@ -312,6 +312,13 @@ def runFTG():
 
 
 # ASSURE CONVERSION METHODS
+def process_assure_txt_input(input_txt):
+    return FileExistsError
+
+def create_assure_txt(input_txt):
+    return FileExistsError
+
+
 def process_assure_file(input_file):
     # Read in the Assure data
     raw_Assure = pd.read_excel(input_file, sheet_name=0)
