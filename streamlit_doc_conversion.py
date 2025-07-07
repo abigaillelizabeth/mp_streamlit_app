@@ -313,88 +313,13 @@ def runFTG():
 
 # ASSURE CONVERSION METHODS
 def process_assure_txt_input(input_txt):
-    # Read the .txt file
-    df = pd.read_csv(input_txt, sep=",", quotechar='"', dtype=str)
+    return FileExistsError
 
-    # Drop rows with 'TOTALS' in the Code column
-    df = df[df["Code"].str.upper().fillna("") != "TOTALS"]
+def create_assure_txt(input_txt):
+    return FileExistsError
 
-    # Clean numeric values, handling empty strings and NaNs
-    df["Debit"] = df["Debit"].str.replace(",", "").replace("", "0").fillna("0").astype(float)
-    df["Credit"] = df["Credit"].str.replace(",", "").replace("", "0").fillna("0").astype(float)
 
-    # Fill missing GL Numbers with a fallback format to avoid errors
-    df["GL Number"] = df["GL Number"].fillna("000:0000")
-
-    # Split GL Number into Dept and Acct
-    df[["Dept", "Acct"]] = df["GL Number"].str.split(":", expand=True)
-
-    #df["Dept"] = df["Dept"].fillna("000").str.zfill(3)
-    #df["Acct"] = df["Acct"].fillna("0000").str.zfill(6)
-    df["Dept"] = df["Dept"].fillna("000").str.zfill(3)
-    df["Acct"] = df["Acct"].fillna("000000000").str.zfill(9)
-    print(df[["GL Number", "Dept", "Acct"]].head(10))
-    print(df["Acct"].apply(len).value_counts())
-
-    # Fill Description with empty string if missing
-    df["Description"] = df["Description"].fillna("")
-
-    return df
-
-def create_assure_txt_extended (df, journal_date, accounting_period):
-    output = io.StringIO()
-
-    unused_field1 = "00000"
-    co_num = "0001"
-    fund_num = "0000"
-    journal_type = "PR"
-    journal_num = "00000"
-    unused_field3 = "000"
-    empty_field = ""
-    date_str = journal_date
-    lines = []
-
-    for _, row in df.iterrows():
-        # Clean and extract debit/credit values
-        debit = row.get("Debit", "")
-        credit = row.get("Credit", "")
-
-        debit = str(debit).replace(",", "").strip()
-        credit = str(credit).replace(",", "").strip()
-
-        if debit:
-            amount = int(round(float(debit) * 100))
-        elif credit:
-            amount = -int(round(float(credit) * 100))
-        else:
-            continue  # Skip if no amount
-
-        field2 = f"{co_num}{fund_num}{accounting_period.zfill(2)}{journal_type}{journal_num}"
-        #account_full = f"{row['Dept']}{row['Acct']}"
-        account_full = f"{row['Dept'].zfill(3)}{row['Acct'].zfill(9)}"
-
-        line = [
-            unused_field1,
-            field2,
-            unused_field3,
-            date_str,
-            str(row["Description"]),
-            empty_field,
-            account_full,
-            str(amount),
-            empty_field,
-        ]
-
-        lines.append(",".join(f'"{str(field)}"' for field in line))
-
-    output.write("\r\n".join(lines))
-
-    # Return BytesIO so it can be downloaded or written to disk
-    assure_file = io.BytesIO(output.getvalue().encode("utf-8"))
-    assure_file.seek(0)
-    return assure_file
-
-def process_assure_file_input(input_file):
+def process_assure_file(input_file):
     # Read in the Assure data
     raw_Assure = pd.read_excel(input_file, sheet_name=0)
     print(raw_Assure.head())
@@ -418,7 +343,7 @@ def process_assure_file_input(input_file):
 
     return final_Assure
 
-def create_assure_txt_simple(df, journal_date, accounting_period):
+def create_assure_txt(df, journal_date, accounting_period):
     output = io.StringIO()
 
     unused_field1 = "00000"
@@ -484,14 +409,14 @@ def create_assure_txt_simple(df, journal_date, accounting_period):
     return assure_file
 
 def mainAssure(uploaded_file):
-    processed_assure = process_assure_file_input(uploaded_file)  # Use your cleaning logic
+    processed_assure = process_assure_file(uploaded_file)  # Use your cleaning logic
     print(processed_assure.head())
     print(processed_assure.shape)
 
     journal_date = "010125"
     accounting_period = "01"
     
-    assure_final = create_assure_txt_simple(processed_assure, journal_date, accounting_period)
+    assure_final = create_assure_txt(processed_assure, journal_date, accounting_period)
     print(assure_final)
     print("File created successfully. Ready for download.")
 
@@ -502,72 +427,32 @@ def mainAssure(uploaded_file):
 
     return assure_final
 
-# def runAssure(): # first draft: works
-#     st.subheader("Assure GL File Upload")
-#     uploaded_file = st.file_uploader("Upload an excel assure file", type="xlsx", key="assure_upload")
-
-#     journal_date = st.text_input("Journal Date:", value="010125")
-#     accounting_period = st.text_input("Accounting Period:", value="01")
-
-#     # Run the script when the button is pressed
-#     if st.button("Generate Assure JE File"):
-#         if uploaded_file is not None:
-#             # Process the payroll data
-#             processed_data = process_assure_file(uploaded_file)
-            
-#             # Create the output file
-#             output_file = create_assure_txt_simple(processed_data, journal_date, accounting_period)
-#             st.success("Assure file processed and ready for download!")
-
-#             # Provide download button for the payroll output
-#             st.download_button(
-#                 label="Download Assure Journal Entry",
-#                 data=output_file,
-#                 file_name="GLTRN2000.txt",
-#                 mime="text/plain"
-#             )
-#         else:
-#             st.error("Please upload an Assure file.")
-
-def runAssure(): # extended format: beta
+def runAssure():
     st.subheader("Assure GL File Upload")
-    uploaded_file = st.file_uploader("Upload an Assure file (.xlsx or .txt)", type=["xlsx", "txt"], key="assure_upload")
+    uploaded_file = st.file_uploader("Upload an excel assure file", type="xlsx", key="assure_upload")
 
     journal_date = st.text_input("Journal Date:", value="010125")
     accounting_period = st.text_input("Accounting Period:", value="01")
 
+    # Run the script when the button is pressed
     if st.button("Generate Assure JE File"):
         if uploaded_file is not None:
-            file_name = uploaded_file.name.lower()
+            # Process the payroll data
+            processed_data = process_assure_file(uploaded_file)
+            
+            # Create the output file
+            output_file = create_assure_txt(processed_data, journal_date, accounting_period)
+            st.success("Assure file processed and ready for download!")
 
-            try:
-                if file_name.endswith(".xlsx"):
-                    # Handle Excel input
-                    processed_data = process_assure_file_input(uploaded_file)
-                    output_file = create_assure_txt_simple(processed_data, journal_date, accounting_period)
-
-                elif file_name.endswith(".txt"):
-                    # Handle text input
-                    processed_data = process_assure_txt_input(uploaded_file)
-                    output_file = create_assure_txt_extended(processed_data, journal_date, accounting_period)
-
-                else:
-                    st.error("Unsupported file format. Please upload a .xlsx or .txt file.")
-                    return
-
-                st.success("Assure Journal Entry processed successfully!")
-                st.download_button(
-                    label="Download Assure Journal Entry",
-                    data=output_file,
-                    file_name="GLTRN2000.txt",
-                    mime="text/plain"
-                )
-
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
+            # Provide download button for the payroll output
+            st.download_button(
+                label="Download Assure Journal Entry",
+                data=output_file,
+                file_name="GLTRN2000.txt",
+                mime="text/plain"
+            )
         else:
             st.error("Please upload an Assure file.")
-
 
 
 # PAYROLL METHODS
@@ -1742,7 +1627,7 @@ def authenticate(username, password):
 
 def call_methods():
     st.title("MP File Import & Conversion App")
-    # st.write("WASSAPP")
+
     with st.sidebar:
         if st.button("🔒 Logout"):
             st.session_state.logged_in = False
@@ -1817,8 +1702,8 @@ def run_gui():
 
 # Streamit running
 if __name__ == "__main__":
-    #run_gui() # WITH AUTH
-    call_methods() # WITHOUT AUTH
+    run_gui() # WITH AUTH
+    #call_methods() # WITHOUT AUTH
     
 
 # TERMINAL TESTING
