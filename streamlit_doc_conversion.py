@@ -4,7 +4,8 @@ import pandas as pd
 import numpy as np
 import csv
 import re
-import io
+import io 
+from io import *
 import os
 from openpyxl import *
 from openpyxl.styles import numbers
@@ -772,13 +773,62 @@ def runCigna():
 
 # CONTRIBUTIONS- MASTER ADDRESS MERGER
 def master_address_importer(uploaded_person_report):
-    return FileExistsError
+    df = pd.read_excel(uploaded_person_report)
 
-def master_donor_file(uploaded_donor_report):
-    return FileExistsError
+    # Create full address column
+    df["Full Address"] = (
+    df["Street Address"].fillna('').astype(str) + ", " +
+    df["City"].fillna('').astype(str) + ", " +
+    df["State"].fillna('').astype(str) + " " +
+    df["Zip Code"].fillna('').astype(str)
+    )
+
+    return df
+
+def master_donor_file(uploaded_donor_report, uploaded_person_report):
+    # Generate address_df from person report
+    address_df = master_address_importer(uploaded_person_report)
+
+    donor_df = pd.read_excel(uploaded_donor_report)
+
+    # Merge using Person ID from address_df and person_id from donor_df
+    merged = donor_df.merge(
+        address_df,
+        left_on="person_id",
+        right_on="Person ID",
+        how="left"
+    )
+
+    return merged
 
 def runMasterAddressMerger():
-    return FileExistsError
+    st.header("Donor File & Master Address Report Merger")
+
+    # Simple, one-shot upload
+    uploaded_person_report = st.file_uploader("Upload Master Person Export (obtained from Membership -> Public Lists -> Master Person Report)", 
+        type="xlsx", key="address_upload")
+    uploaded_donor_report = st.file_uploader("Upload Arena Donor Export (obtained from Contributions -> Contribution List -> Contributors)", 
+        type="xlsx", key="donor_upload")
+
+    # One button to do everything
+    if st.button("Create Donor Report"):
+        if uploaded_person_report is not None and uploaded_donor_report is not None:
+            merged_df = master_donor_file(uploaded_donor_report, uploaded_person_report)
+
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                merged_df.to_excel(writer, index=False, sheet_name="Merged Donor Report")
+            output.seek(0)
+
+            st.success("Report ready for download!")
+            st.download_button(
+                label="Download",
+                data=output,
+                file_name="Donor_Report_With_Addresses.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        else:
+            st.error("Please upload both files.")
 
 
 
@@ -1651,14 +1701,14 @@ def call_methods():
         st.markdown("### 📂 Contributions")
         if st.button("🧾 Contribution Reports"):
             st.session_state.selected_function = "Contribution Reports"
-        if st.button("🧾 NEW TEST FUNCTION- master contribution list"):
-            st.session_state.selected_function = "Master Test Report"
 
         st.markdown("### 📋 Arena List Formatting")
         if st.button("📨 Arena Mailing Report"):
             st.session_state.selected_function = "Arena Mailing Report"
         if st.button("👤 First-Time Givers Report"):
             st.session_state.selected_function = "First-Time Givers Report"
+        if st.button("📍 Donor Address Merger"):
+            st.session_state.selected_function = "Master Test Report"
 
         st.markdown("### 🧮 Journey Entry Creation")
         if st.button("💼 Payroll Workbook"):
