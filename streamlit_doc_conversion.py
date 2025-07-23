@@ -770,6 +770,17 @@ def runCigna():
         else:
             st.error("Please upload a Cigna file.")
 
+# CONTRIBUTIONS- MASTER ADDRESS MERGER
+def master_address_importer(uploaded_person_report):
+    return FileExistsError
+
+def master_donor_file(uploaded_donor_report):
+    return FileExistsError
+
+def runMasterAddressMerger():
+    return FileExistsError
+
+
 
 # CONTRIBUTIONS- ARENA
 def arena_master_included(uploaded_arena_files):
@@ -1640,6 +1651,8 @@ def call_methods():
         st.markdown("### 📂 Contributions")
         if st.button("🧾 Contribution Reports"):
             st.session_state.selected_function = "Contribution Reports"
+        if st.button("🧾 NEW TEST FUNCTION- master contribution list"):
+            st.session_state.selected_function = "Master Test Report"
 
         st.markdown("### 📋 Arena List Formatting")
         if st.button("📨 Arena Mailing Report"):
@@ -1660,6 +1673,8 @@ def call_methods():
 
     if selected_function == "Contribution Reports":
         runContributions()
+    elif selected_function == "Master Test Report":
+        runMasterAddressMerger()
     elif selected_function == "Arena Mailing Report":
         runMailing()
     elif selected_function == "First-Time Givers Report":
