@@ -1271,18 +1271,18 @@ def matching_logic(arena_df, ezt_df):
 
     # Extract match categories
     match_by_transaction_id = merged[merged["_merge"] == "both"].copy()
+    match_by_transaction_id = match_by_transaction_id.sort_values(by="Arena Batch #", ascending=True)
     arena_only = merged[merged["_merge"] == "left_only"].copy()
     ezt_only = merged[merged["_merge"] == "right_only"].copy()
 
     # Add Match Type Indicator Column
-    match_by_transaction_id["Match Type"] = "Matched by Transaction ID"
-    arena_only["Match Type"] = "Unmatched (Arena only)"
-    ezt_only["Match Type"] = "Unmatched (EZT only)"
+    match_by_transaction_id["Match Type"] = "Matched Found"
+    arena_only["Match Type"] = "No Match Found: Arena only"
+    ezt_only["Match Type"] = "No Match Found: EZT only"
 
     # Drop the merge indicator before output
     for df in [match_by_transaction_id, arena_only, ezt_only]:
         df.drop(columns=["_merge"], inplace=True)
-
     # Apply consistent column order
     ordered_cols = reorder_merged_columns(merged, arena_df, ezt_df) + ["Match Type"]
     match_by_transaction_id = match_by_transaction_id[ordered_cols]
@@ -1292,61 +1292,12 @@ def matching_logic(arena_df, ezt_df):
     # Build categorized Excel with labeled sections
     return categorized_matches(  # just return the file
         match_by_id_df=match_by_transaction_id,
-        match_by_donor_df=pd.DataFrame(),
         unmatched_df=pd.concat([arena_only, ezt_only], ignore_index=True)
     )
     # return match_by_transaction_id, pd.DataFrame(), pd.concat([arena_only, ezt_only], ignore_index=True)
 
-# def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df): # WORKBOOK ERROR
-#     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-#         wb = Workbook()
-#         ws = wb.active
-#         ws.title = "Matched Contributions"
-        
-#         def write_section(header, df, start_row):
-#             # KEY FIX: Use DataFrame column count instead of ws.max_column
-#             num_columns = max(len(df.columns), 1)  # Ensure at least 1 column
-            
-#             # Write title row - ONLY populate column A
-#             for col_idx in range(1, num_columns + 1):
-#                 cell = ws.cell(row=start_row, column=col_idx)
-#                 if col_idx == 1:
-#                     cell.value = header
-#                     #cell.font = Font(bold=True)
-#                 else:
-#                     # Explicitly clear other cells in header row
-#                     cell.value = None
 
-#             # Write DataFrame content
-#             header_row = start_row + 1
-#             for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=header_row):
-#                 for c_idx, value in enumerate(row, start=1):
-#                     cell = ws.cell(row=r_idx, column=c_idx, value=value)
-#                     if r_idx == header_row:  # Bold column headers
-#                         cell.font = Font(bold=True)
-            
-#             return r_idx + 2  # Add blank row between sections
-
-#         row_cursor = 1
-#         row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
-        
-#         if not match_by_donor_df.empty:
-#             row_cursor = write_section("Matched by Donor Info", match_by_donor_df, row_cursor)
-            
-#         row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
-
-#         wb.save(tmp.name)
-#         with open(tmp.name, "rb") as f:
-#             final_output = f.read()
-
-#     return final_output
-      
-def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df):
-    import io
-    from openpyxl import Workbook
-    from openpyxl.styles import Font
-    from openpyxl.utils.dataframe import dataframe_to_rows
-
+def categorized_matches(match_by_id_df, unmatched_df):
     wb = Workbook()
     ws = wb.active
     ws.title = "Matched Contributions"
@@ -1374,9 +1325,6 @@ def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df):
 
     row_cursor = 1
     row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
-
-    if not match_by_donor_df.empty:
-        row_cursor = write_section("Matched by Donor Info", match_by_donor_df, row_cursor)
 
     row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
 
@@ -1428,9 +1376,6 @@ def categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df):
 #     return output
 
 def export_combined_excel(arena_df, ezt_df):
-    import io
-    import datetime
-    from openpyxl import Workbook
 
     wb = Workbook()
     wb.remove(wb.active)  # Remove default sheet
@@ -1462,10 +1407,6 @@ def export_combined_excel(arena_df, ezt_df):
     wb.save(output)
     output.seek(0)
     return output
-
-# def export_matched_excel(arena_df, ezt_df):
-#     match_by_id_df, match_by_donor_df, unmatched_df = matching_logic(arena_df, ezt_df)
-#     return categorized_matches(match_by_id_df, match_by_donor_df, unmatched_df)
 
 def export_matched_excel(arena_df, ezt_df):
     return matching_logic(arena_df, ezt_df)  # no unpacking
@@ -1744,7 +1685,7 @@ def run_gui():
 
     # Show login form if not logged in
     if not st.session_state.logged_in:
-        st.title("MP File Conversion Login Page")
+        st.title("MP File Conversion Login")
         st.write("Please enter your username and password.")
         
         # Create input fields for username and password
