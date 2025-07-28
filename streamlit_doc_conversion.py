@@ -976,7 +976,7 @@ def arena_excel(combined_arena_data):
     # Create a new workbook
     wb = Workbook()
     ws = wb.active
-    ws.title = "Arena Contributions"
+    ws.title = "Arena Details"
 
     # Write column headers
     ws.append(combined_arena_data.columns.tolist())
@@ -1074,7 +1074,7 @@ def ezt_excel(combined_ezt_data):
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "EZT Contributions"
+    ws.title = "EZT Details"
 
     # Write headers
     ws.append(combined_ezt_data.columns.tolist())
@@ -1378,7 +1378,7 @@ def runMatchContributions():
             # )
 
             st.download_button(
-                label="Master Workbook (.xlsx)",
+                label="Master Workbook",
                 data=master_excel,
                 file_name="master_contributions_export.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
