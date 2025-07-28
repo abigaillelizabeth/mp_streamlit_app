@@ -833,60 +833,62 @@ def runMasterAddressMerger():
 
 
 
-# CONTRIBUTIONS- ARENA
-def arena_master_included(uploaded_arena_files):
-    #print("running arena_master_included")
-    arena_data_list = []  # List to store the processed data from each file
+# CONTRIBUTIONS - ARENA
 
-    # Sort the files by name (to check length and determine if master or batch file)
-    uploaded_arena_files.sort(key=lambda x: len(x.name))  # Sort by the file name length
 
-    master_file_found = False
-    combined_arena_data = pd.DataxFrame()  # Initialize the combined dataframe
+# def arena_master_included(uploaded_arena_files):
+#     #print("running arena_master_included")
+#     arena_data_list = []  # List to store the processed data from each file
 
-    # Process each uploaded Arena file
-    for uploaded_arena_file in uploaded_arena_files:
-        # Read in the EZT data based on type
-        filename = uploaded_arena_file.name.lower()
+#     # Sort the files by name (to check length and determine if master or batch file)
+#     uploaded_arena_files.sort(key=lambda x: len(x.name))  # Sort by the file name length
 
-        if filename.endswith('.csv'):
-            raw_contrib_arena = pd.read_csv(uploaded_arena_file)
-        elif filename.endswith('.xlsx'):
-            raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
-        else:
-            st.warning(f"Unsupported file type: {uploaded_arena_file.name}")
-            continue
+#     master_file_found = False
+#     combined_arena_data = pd.DataxFrame()  # Initialize the combined dataframe
 
-        # Check if the file name has more than 5 characters (indicating it's a master file)
-        if len(uploaded_arena_file.name.split('.')[0]) > 5:
-            # Master file logic
-            print(f"Master file found: {uploaded_arena_file.name}")
-            master_file_found = True
+#     # Process each uploaded Arena file
+#     for uploaded_arena_file in uploaded_arena_files:
+#         # Read in the EZT data based on type
+#         filename = uploaded_arena_file.name.lower()
 
-            # Use only the first row as the header
-            raw_contrib_arena.columns = raw_contrib_arena.iloc[0]
-            raw_contrib_arena = raw_contrib_arena.drop(index=0)
-            raw_contrib_arena.reset_index(drop=True, inplace=True)
+#         if filename.endswith('.csv'):
+#             raw_contrib_arena = pd.read_csv(uploaded_arena_file)
+#         elif filename.endswith('.xlsx'):
+#             raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
+#         else:
+#             st.warning(f"Unsupported file type: {uploaded_arena_file.name}")
+#             continue
 
-            combined_arena_data = raw_contrib_arena  # Initialize combined_arena_data with the raw master file
+#         # Check if the file name has more than 5 characters (indicating it's a master file)
+#         if len(uploaded_arena_file.name.split('.')[0]) > 5:
+#             # Master file logic
+#             print(f"Master file found: {uploaded_arena_file.name}")
+#             master_file_found = True
 
-        else:
-             # Extract the batch number (first 5 digits of the file name)
-            batch_number = uploaded_arena_file.name.split('.')[0]
+#             # Use only the first row as the header
+#             raw_contrib_arena.columns = raw_contrib_arena.iloc[0]
+#             raw_contrib_arena = raw_contrib_arena.drop(index=0)
+#             raw_contrib_arena.reset_index(drop=True, inplace=True)
 
-            # Batch file logic (files with 5-digit names)
-            print(f"Processing batch file: {uploaded_arena_file.name}")
-            processed_batch_file = arena_all_new([uploaded_arena_file])  # Process batch files and return a DataFrame
-            processed_batch_file["Batch #"] = batch_number  # Add the "Batch #" column to the batch file
+#             combined_arena_data = raw_contrib_arena  # Initialize combined_arena_data with the raw master file
 
-            # Append to the list for combining later
-            arena_data_list.append(processed_batch_file)
+#         else:
+#              # Extract the batch number (first 5 digits of the file name)
+#             batch_number = uploaded_arena_file.name.split('.')[0]
+
+#             # Batch file logic (files with 5-digit names)
+#             print(f"Processing batch file: {uploaded_arena_file.name}")
+#             processed_batch_file = arena_all_new([uploaded_arena_file])  # Process batch files and return a DataFrame
+#             processed_batch_file["Batch #"] = batch_number  # Add the "Batch #" column to the batch file
+
+#             # Append to the list for combining later
+#             arena_data_list.append(processed_batch_file)
     
-    # If there are batch files, combine them with the master file
-    if arena_data_list:
-        combined_arena_data = pd.concat([combined_arena_data] + arena_data_list, ignore_index=True)
+#     # If there are batch files, combine them with the master file
+#     if arena_data_list:
+#         combined_arena_data = pd.concat([combined_arena_data] + arena_data_list, ignore_index=True)
 
-    return combined_arena_data
+#     return combined_arena_data
 
 def arena_all_new(uploaded_arena_files):
     #print("running arena_all_new")
@@ -956,13 +958,14 @@ def arena_merge(uploaded_arena_files):
         file_name = arena_file.name.split('.')[0]  # Remove file extension to check the name length
         if len(file_name) != 5 or not file_name.isdigit():  # Check if the length is not 5 or it's not numeric
             all_five_digits = False
-            break  # No need to check further, as we already know the files don't match the condition
+            break
     
     # Call appropriate function based on the file name length
-    if all_five_digits:
-        combined_arena_data = arena_all_new(uploaded_arena_files)
-    else:
-        combined_arena_data = arena_master_included(uploaded_arena_files)
+    # if all_five_digits:
+    #     combined_arena_data = arena_all_new(uploaded_arena_files)
+    # else:
+    #     combined_arena_data = arena_master_included(uploaded_arena_files)
+    combined_arena_data = arena_all_new(uploaded_arena_files)
 
     return combined_arena_data
 
@@ -1020,12 +1023,9 @@ def runArenaContributions():
         if uploaded_arena_files:
             # Call the process_contrib_arena to handle the file processing and combine the files
             combined_arena_data = arena_merge(uploaded_arena_files)
-            # print("Arena Data Imported")
-            #print(combined_arena_data.dtypes)
 
             # Store the combined Arena data in session state
             st.session_state.arena_data = combined_arena_data
-            #st.session_state.arena_file_output = combined_arena_data
             st.success("Arena batches processed and combined successfully")
 
             if combined_arena_data is not None and not combined_arena_data.empty:
@@ -1040,10 +1040,19 @@ def runArenaContributions():
                 st.error("No valid data to write to Excel.")
         else:
             st.error("Please upload at least one Arena batch.")
-        #arena_file_output = arena_excel(combined_arena_data)
         return 
 
-# CONTRIBUTIONS- EASY-TITHE
+def arena_from_master(master_file):
+    try:
+        df = pd.read_excel(master_file, sheet_name="Arena Details")
+        df = df.loc[:, df.columns.notna()]  # Remove any NaN column headers
+        df = df[df.columns[df.columns != "Unnamed: 0"]]  # Remove row-number index if present
+        return df
+    except Exception as e:
+        st.error(f"Failed to read 'Arena Details' from master file: {e}")
+        return pd.DataFrame()
+
+# CONTRIBUTIONS - EASY-TITHE
 def ezt_merge(uploaded_ezt_data): 
     #print("running ezt_merge")
     ezt_data_list = []  # List to store the processed data from each file
@@ -1137,7 +1146,42 @@ def runEZTContributions():
         else:
             st.error("Please upload at least one EasyTithe batch.")
 
-# CONTRIBUTIONS- MATCHING BY ID
+def ezt_from_master(master_file):
+    try:
+        df = pd.read_excel(master_file, sheet_name="EZT Details")
+        df = df.loc[:, df.columns.notna()]
+        df = df[df.columns[df.columns != "Unnamed: 0"]]
+        return df
+    except Exception as e:
+        st.error(f"Failed to read 'EZT Details' from master file: {e}")
+        return pd.DataFrame()
+
+# CONTRIBUTIONS - IMPORTING
+def runAllImports(uploaded_arena_files, uploaded_ezt_files, uploaded_master_file):
+    # Handle Arena files
+    if uploaded_arena_files:
+        combined_arena_data = arena_merge(uploaded_arena_files)
+        st.session_state.arena_data = combined_arena_data
+        st.success("Arena batches processed successfully.")
+    else:
+        st.error("No Arena files added")
+
+    # Handle EZT files
+    if uploaded_ezt_files:
+        combined_ezt_data = ezt_merge(uploaded_ezt_files)
+        st.session_state.ezt_data = combined_ezt_data
+        st.success("EasyTithe batches processed successfully.")
+    else:
+        st.error("No EZT files added")
+
+    # Handle master workbook (we'll finish this in Step 2)
+    if uploaded_master_file:
+        st.session_state.master_file = uploaded_master_file
+        st.success("Master workbook detected and ready.")
+    else:
+        st.session_state.master_file = None
+
+# CONTRIBUTIONS - MATCHING BY ID
 def reorder_merged_columns(merged, arena_df, ezt_df):
     arena_cols = list(arena_df.columns)
     ezt_cols = list(ezt_df.columns)
@@ -1154,42 +1198,124 @@ def reorder_merged_columns(merged, arena_df, ezt_df):
     final_order = arena_id_cols + arena_other_cols + ezt_id_cols + ezt_other_cols
     return [col for col in final_order if col in merged.columns]
 
-def categorized_matches(match_by_id_df, unmatched_df):
+
+# def categorized_matches(match_by_id_df, unmatched_df):
+#     wb = Workbook()
+#     ws = wb.active
+#     ws.title = "Matched Contributions"
+
+#     def write_section(header, df, start_row):
+#         num_columns = max(len(df.columns), 1)
+
+#         # Write title row
+#         for col_idx in range(1, num_columns + 1):
+#             cell = ws.cell(row=start_row, column=col_idx)
+#             if col_idx == 1:
+#                 cell.value = header
+#             else:
+#                 cell.value = None
+
+#         # Write DataFrame contents
+#         header_row = start_row + 1
+#         for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=header_row):
+#             for c_idx, value in enumerate(row, start=1):
+#                 cell = ws.cell(row=r_idx, column=c_idx, value=value)
+#                 if r_idx == header_row:
+#                     cell.font = Font(bold=True)
+
+#         return r_idx + 2
+
+#     row_cursor = 1
+#     row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
+
+#     row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
+
+#     # Save workbook to memory
+#     output = io.BytesIO()
+#     wb.save(output)
+#     output.seek(0)
+#     return output
+
+
+
+def categorized_matches(match_by_id_df, unmatched_df, ezt_df):
     wb = Workbook()
-    ws = wb.active
-    ws.title = "Matched Contributions"
+    wb.remove(wb.active)
 
-    def write_section(header, df, start_row):
-        num_columns = max(len(df.columns), 1)
+    # Summary counts
+    match_count = len(match_by_id_df)
+    arena_only_count = len(unmatched_df[unmatched_df["Match Type"] == "No Match Found: Arena only"])
+    ezt_only_count = len(unmatched_df[unmatched_df["Match Type"] == "No Match Found: EZT only"])
+    total_unmatched = arena_only_count + ezt_only_count
 
-        # Write title row
-        for col_idx in range(1, num_columns + 1):
-            cell = ws.cell(row=start_row, column=col_idx)
-            if col_idx == 1:
-                cell.value = header
-            else:
-                cell.value = None
+    # ------------------------
+    # Sheet 1: Matched Contributions (Fully Matched EZT Batches only)
+    # ------------------------
+    ws_matched = wb.create_sheet(title="Matched Contributions")
 
-        # Write DataFrame contents
-        header_row = start_row + 1
-        for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=header_row):
-            for c_idx, value in enumerate(row, start=1):
-                cell = ws.cell(row=r_idx, column=c_idx, value=value)
-                if r_idx == header_row:
-                    cell.font = Font(bold=True)
+    # Count full match status
+    ezt_full_counts = ezt_df["EZT Batch ID"].astype(str).value_counts()
+    matched_counts = match_by_id_df["EZT Batch ID"].astype(str).value_counts()
 
-        return r_idx + 2
+    # Determine fully matched batch IDs
+    fully_matched_batches = [
+        batch_id for batch_id in matched_counts.index
+        if matched_counts[batch_id] == ezt_full_counts.get(batch_id, -1)
+    ]
 
-    row_cursor = 1
-    row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
+    # Write summary
+    summary_rows = [
+        ["Fully Matched EZT Batches", len(fully_matched_batches)],
+        ["Total Matched Transactions", match_count],
+        ["Arena Only", arena_only_count],
+        ["EZT Only", ezt_only_count],
+        ["Total Unmatched", total_unmatched],
+        [],
+    ]
+    for row in summary_rows:
+        ws_matched.append(row)
 
-    row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
+    # For each fully matched batch, write block
+    headers_written = False
+    for batch_id in fully_matched_batches:
+        subset = match_by_id_df[match_by_id_df["EZT Batch ID"].astype(str) == batch_id]
 
-    # Save workbook to memory
+        # Sort by Arena Batch #
+        subset = subset.sort_values(by="Arena Batch #")
+
+        # Write section title
+        batch_id_clean = str(int(float(batch_id)))  # safely convert 23863.0 → "23863"
+        ws_matched.append([f"EZT Batch #{batch_id_clean} - Fully Matched"])
+        header_cell = ws_matched.cell(row=ws_matched.max_row, column=1)
+        header_cell.font = Font(bold=True)
+        ws_matched.append([])  # spacer
+
+        # Write headers once
+        if not headers_written:
+            ws_matched.append(subset.columns.tolist())
+            headers_written = True
+
+        # Write data rows
+        for row in subset.itertuples(index=False):
+            ws_matched.append(list(row))
+
+    # Add a blank line after each batch
+    ws_matched.append([])
+
+    # ------------------------
+    # Sheet 2: Unmatched Transactions
+    # ------------------------
+    ws_unmatched = wb.create_sheet(title="Unmatched Transactions")
+    ws_unmatched.append(unmatched_df.columns.tolist())
+    for row in unmatched_df.itertuples(index=False):
+        ws_unmatched.append(list(row))
+
+    # Save to memory
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
     return output
+
 
 # CONTRIBUTIONS - EXPORTING
 def export_matched_excel(arena_df, ezt_df):
@@ -1223,6 +1349,7 @@ def export_matched_excel(arena_df, ezt_df):
 
     # Extract match categories
     match_by_transaction_id = merged[merged["_merge"] == "both"].copy()
+    match_by_transaction_id["Arena Batch #"] = match_by_transaction_id["Arena Batch #"].astype(str)
     match_by_transaction_id = match_by_transaction_id.sort_values(by="Arena Batch #", ascending=True)
     arena_only = merged[merged["_merge"] == "left_only"].copy()
     ezt_only = merged[merged["_merge"] == "right_only"].copy()
@@ -1242,10 +1369,13 @@ def export_matched_excel(arena_df, ezt_df):
     ezt_only = ezt_only[ordered_cols]
 
     # Build categorized Excel with labeled sections
-    return categorized_matches(  # just return the file
+    return categorized_matches(
         match_by_id_df=match_by_transaction_id,
-        unmatched_df=pd.concat([arena_only, ezt_only], ignore_index=True)
+        unmatched_df=pd.concat([arena_only, ezt_only], ignore_index=True),
+        ezt_df = ezt_df  # <-- NEW
     )
+
+
     # return match_by_transaction_id, pd.DataFrame(), pd.concat([arena_only, ezt_only], ignore_index=True)
 
 def export_combined_excel(arena_df, ezt_df):
@@ -1281,7 +1411,7 @@ def export_combined_excel(arena_df, ezt_df):
     output.seek(0)
     return output
 
-def export_full_report_with_formatting(arena_df, ezt_df):
+def export_contributions_master(arena_df, ezt_df):
     def apply_formatting(ws):
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         for row in ws.iter_rows(min_row=2):
@@ -1337,66 +1467,138 @@ def export_full_report_with_formatting(arena_df, ezt_df):
 
     return output
 
+
+# def runMatchContributions():
+#     arena_ready = 'arena_data' in st.session_state
+#     ezt_ready = 'ezt_data' in st.session_state
+
+#     if arena_ready and ezt_ready:
+#         st.header("Contribution Report Download Options")
+#         st.write("Click the button below to generate all contribution reports.")
+
+#         if st.button("Generate Reports"):
+#             # Generate all outputs at once
+#             merged_excel_sheets = export_combined_excel(
+#                 st.session_state.arena_data,
+#                 st.session_state.ezt_data
+#             )
+
+#             matched_excel_sheet = export_matched_excel(
+#                 st.session_state.arena_data,
+#                 st.session_state.ezt_data
+#             )
+
+#             master_excel = export_full_report_with_formatting(
+#                 st.session_state.arena_data,
+#                 st.session_state.ezt_data
+#             )
+
+#             # Show all download buttons
+#             # st.download_button(
+#             #     label="Combined Arena & EZT Batches (.xlsx)",
+#             #     data=merged_excel_sheets,
+#             #     file_name="merged_contributions.xlsx",
+#             #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+#             # )
+
+#             # st.download_button(
+#             #     label="Matched Sheet Only (.xlsx)",
+#             #     data=matched_excel_sheet,
+#             #     file_name="matched_contributions.xlsx",
+#             #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+#             # )
+
+#             st.download_button(
+#                 label="Master Workbook",
+#                 data=master_excel,
+#                 file_name="master_contributions_export.xlsx",
+#                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+#             )
+
+#     else:
+#         st.info("Upload both Arena and EZT files to access combined export options.")
+
 def runMatchContributions():
     arena_ready = 'arena_data' in st.session_state
     ezt_ready = 'ezt_data' in st.session_state
 
     if arena_ready and ezt_ready:
         st.header("Contribution Report Download Options")
-        st.write("Click the button below to generate all contribution reports.")
+        st.write("Click the button below to generate the full contribution report.")
 
         if st.button("Generate Reports"):
-            # Generate all outputs at once
-            merged_excel_sheets = export_combined_excel(
-                st.session_state.arena_data,
-                st.session_state.ezt_data
-            )
+            # Load prior master data if provided
+            uploaded_master = st.session_state.get("master_file", None)
 
-            matched_excel_sheet = export_matched_excel(
-                st.session_state.arena_data,
-                st.session_state.ezt_data
-            )
+            if uploaded_master:
+                prior_arena = arena_from_master(uploaded_master)
+                prior_ezt = ezt_from_master(uploaded_master)
+            else:
+                prior_arena = pd.DataFrame()
+                prior_ezt = pd.DataFrame()
 
-            master_excel = export_full_report_with_formatting(
-                st.session_state.arena_data,
-                st.session_state.ezt_data
-            )
 
-            # Show all download buttons
-            # st.download_button(
-            #     label="Combined Arena & EZT Batches (.xlsx)",
-            #     data=merged_excel_sheets,
-            #     file_name="merged_contributions.xlsx",
-            #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            # )
+            # Remove duplicates before combining
+            current_arena = st.session_state.arena_data
+            current_ezt = st.session_state.ezt_data
+            
+            # Only keep Arena rows with Transaction Detail not in prior_arena
+            if not prior_arena.empty and "Transaction Detail" in prior_arena.columns:
+                current_arena = current_arena[
+                    ~current_arena["Transaction Detail"].isin(prior_arena["Transaction Detail"])
+                ]
 
-            # st.download_button(
-            #     label="Matched Sheet Only (.xlsx)",
-            #     data=matched_excel_sheet,
-            #     file_name="matched_contributions.xlsx",
-            #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            # )
+            # Only keep EZT rows with Transaction Number not in prior_ezt
+            if not prior_ezt.empty and "Transaction Number" in prior_ezt.columns:
+                current_ezt = current_ezt[
+                    ~current_ezt["Transaction Number"].isin(prior_ezt["Transaction Number"])
+                ]
+
+            # Combine prior and current data
+            combined_arena = pd.concat([prior_arena, current_arena], ignore_index=True)
+            combined_ezt = pd.concat([prior_ezt, current_ezt], ignore_index=True)
+
+            # Generate master Excel file with all 3 sheets
+            master_excel = export_contributions_master(combined_arena, combined_ezt)
 
             st.download_button(
-                label="Master Workbook",
+                label="Download Master Workbook (.xlsx)",
                 data=master_excel,
                 file_name="master_contributions_export.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-
     else:
-        st.info("Upload both Arena and EZT files to access combined export options.")
+        st.info("Upload Arena and EZT batches to generate the full report.")
 
-# Function to run all contribution methods  
+
 def runContributions():
     st.header("Contribution Reports Processing")
-    # Upload Arena Batch Files (Allow multiple files)
-    runArenaContributions()
-    # Upload EZT batch file
-    runEZTContributions()
-    # Match the Contributions
-    runMatchContributions()
+    # Upload Prior Master Workbook (Optional)
+    uploaded_master_file = st.file_uploader(
+        "Upload Prior Master Workbook (Optional)",
+        type=["xlsx"],
+        key="existing_master_upload"
+    )
+    # Upload Arena Batch Files
+    uploaded_arena_files = st.file_uploader(
+        "Upload Arena Batch Files", 
+        type=["xlsx", "csv"], 
+        accept_multiple_files=True, 
+        key="arena_batch_files"
+    )
+    # Upload EZT Batch Files
+    uploaded_ezt_files = st.file_uploader(
+        "Upload EasyTithe Batch Files", 
+        type=["xlsx", "csv"], 
+        accept_multiple_files=True, 
+        key="ezt_batch_files"
+    )
+    # Unified Import Button
+    if st.button("Import All Files"):
+        runAllImports(uploaded_arena_files, uploaded_ezt_files, uploaded_master_file)
 
+    # Continue to matching and export
+    runMatchContributions()
 
 
 
