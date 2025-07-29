@@ -1157,29 +1157,68 @@ def ezt_from_master(master_file):
         return pd.DataFrame()
 
 # CONTRIBUTIONS - IMPORTING
+
+# def runAllImports(uploaded_arena_files, uploaded_ezt_files, uploaded_master_file):
+#     # Handle Arena files
+#     if uploaded_arena_files:
+#         combined_arena_data = arena_merge(uploaded_arena_files)
+#         st.session_state.arena_data = combined_arena_data
+#         st.success("Arena batches processed successfully.")
+#     else:
+#         st.error("No Arena files added")
+
+#     # Handle EZT files
+#     if uploaded_ezt_files:
+#         combined_ezt_data = ezt_merge(uploaded_ezt_files)
+#         st.session_state.ezt_data = combined_ezt_data
+#         st.success("EasyTithe batches processed successfully.")
+#     else:
+#         st.error("No EZT files added")
+
+#     # Handle master workbook (we'll finish this in Step 2)
+#     if uploaded_master_file:
+#         st.session_state.master_file = uploaded_master_file
+#         st.success("Master workbook detected and ready.")
+#     else:
+#         st.session_state.master_file = None
+
+
+
 def runAllImports(uploaded_arena_files, uploaded_ezt_files, uploaded_master_file):
+    has_new_arena = False
+    has_new_ezt = False
+
     # Handle Arena files
     if uploaded_arena_files:
         combined_arena_data = arena_merge(uploaded_arena_files)
         st.session_state.arena_data = combined_arena_data
         st.success("Arena batches processed successfully.")
-    else:
-        st.error("No Arena files added")
+        has_new_arena = True
 
     # Handle EZT files
     if uploaded_ezt_files:
         combined_ezt_data = ezt_merge(uploaded_ezt_files)
         st.session_state.ezt_data = combined_ezt_data
         st.success("EasyTithe batches processed successfully.")
-    else:
-        st.error("No EZT files added")
+        has_new_ezt = True
 
-    # Handle master workbook (we'll finish this in Step 2)
+    # Handle master file (optional, only useful if combined with new batches)
     if uploaded_master_file:
         st.session_state.master_file = uploaded_master_file
-        st.success("Master workbook detected and ready.")
+        if not (has_new_arena or has_new_ezt):
+            st.warning("Master file provided, but no new Arena or EZT batches were uploaded. No changes will be made.")
+        else:
+            st.success("Master workbook loaded successfully.")
     else:
         st.session_state.master_file = None
+
+    # Give user clarity on what happened
+    if not uploaded_arena_files and not uploaded_master_file:
+        st.info("No Arena files uploaded.")
+
+    if not uploaded_ezt_files and not uploaded_master_file:
+        st.info("No EasyTithe files uploaded.")
+
 
 # CONTRIBUTIONS - MATCHING BY ID
 def reorder_merged_columns(merged, arena_df, ezt_df):
@@ -1276,31 +1315,35 @@ def categorized_matches(match_by_id_df, unmatched_df, ezt_df):
         ws_matched.append(row)
 
     # For each fully matched batch, write block
-    headers_written = False
     for batch_id in fully_matched_batches:
+        # Filter and sort
         subset = match_by_id_df[match_by_id_df["EZT Batch ID"].astype(str) == batch_id]
-
-        # Sort by Arena Batch #
         subset = subset.sort_values(by="Arena Batch #")
 
-        # Write section title
-        batch_id_clean = str(int(float(batch_id)))  # safely convert 23863.0 → "23863"
-        ws_matched.append([f"EZT Batch #{batch_id_clean} - Fully Matched"])
-        header_cell = ws_matched.cell(row=ws_matched.max_row, column=1)
-        header_cell.font = Font(bold=True)
-        ws_matched.append([])  # spacer
+        # Spacer row before each batch
+        ws_matched.append([])
 
-        # Write headers once
-        if not headers_written:
-            ws_matched.append(subset.columns.tolist())
-            headers_written = True
+        # Clean up batch ID for header
+        try:
+            batch_id_clean = str(int(float(batch_id)))
+        except:
+            batch_id_clean = str(batch_id).strip()
+
+        # Write bold section header
+        section_row = ws_matched.max_row + 1
+        ws_matched.append([f"EZT Batch #{batch_id_clean} - Fully Matched"])
+        header_cell = ws_matched.cell(row=section_row, column=1)
+        header_cell.font = Font(bold=True)
+
+        # Write column headers (repeated per group)
+        ws_matched.append(subset.columns.tolist())
 
         # Write data rows
         for row in subset.itertuples(index=False):
             ws_matched.append(list(row))
 
-    # Add a blank line after each batch
-    ws_matched.append([])
+        # Blank line after group
+        ws_matched.append([])
 
     # ------------------------
     # Sheet 2: Unmatched Transactions
@@ -1338,6 +1381,11 @@ def export_matched_excel(arena_df, ezt_df):
 
 
     # Merge on transaction ID with indicator
+    # Safe normalization: cast to int first to strip decimal, then to str
+    arena_df["Arena Transaction ID"] = arena_df["Arena Transaction ID"].astype(float).astype(int).astype(str).str.strip()
+    ezt_df["EZT Transaction ID"] = ezt_df["EZT Transaction ID"].astype(float).astype(int).astype(str).str.strip()
+
+
     merged = pd.merge(
         arena_df,
         ezt_df,
@@ -1519,9 +1567,32 @@ def export_contributions_master(arena_df, ezt_df):
 #         st.info("Upload both Arena and EZT files to access combined export options.")
 
 def runMatchContributions():
-    arena_ready = 'arena_data' in st.session_state
-    ezt_ready = 'ezt_data' in st.session_state
+    # arena_ready = 'arena_data' in st.session_state
+    # ezt_ready = 'ezt_data' in st.session_state
 
+    # if arena_ready and ezt_ready:
+    #     st.header("Contribution Report Download Options")
+    #     st.write("Click the button below to generate the full contribution report.")
+
+    #     if st.button("Generate Reports"):
+    master_file = st.session_state.get("master_file", None)
+    arena_ready_from_master = False
+    ezt_ready_from_master = False
+
+    if master_file:
+        try:
+            prior_arena = arena_from_master(master_file)  # <- this is the function
+            prior_ezt = ezt_from_master(master_file)
+            arena_ready_from_master = not prior_arena.empty
+            ezt_ready_from_master = not prior_ezt.empty
+        except Exception as e:
+            st.warning(f"Could not load sheets from master file: {e}")
+
+    arena_ready = 'arena_data' in st.session_state or arena_ready_from_master
+    ezt_ready = 'ezt_data' in st.session_state or ezt_ready_from_master
+
+
+    # ✅ Enforce: must have both Arena and EZT (either from new upload or master)
     if arena_ready and ezt_ready:
         st.header("Contribution Report Download Options")
         st.write("Click the button below to generate the full contribution report.")
@@ -1542,11 +1613,17 @@ def runMatchContributions():
             current_arena = st.session_state.arena_data
             current_ezt = st.session_state.ezt_data
             
-            # Only keep Arena rows with Transaction Detail not in prior_arena
-            if not prior_arena.empty and "Transaction Detail" in prior_arena.columns:
-                current_arena = current_arena[
-                    ~current_arena["Transaction Detail"].isin(prior_arena["Transaction Detail"])
-                ]
+            # Normalize column names and transaction values
+            prior_arena.columns = [col.strip() for col in prior_arena.columns]
+            current_arena.columns = [col.strip() for col in current_arena.columns]
+
+            if "Transaction Detail" in prior_arena.columns and "Transaction Detail" in current_arena.columns:
+                prior_arena["Transaction Detail"] = prior_arena["Transaction Detail"].astype(str).str.strip()
+                current_arena["Transaction Detail"] = current_arena["Transaction Detail"].astype(str).str.strip()
+
+                # Drop duplicates from prior_arena so they can be replaced by new ones
+                prior_arena = prior_arena[~prior_arena["Transaction Detail"].isin(current_arena["Transaction Detail"])]
+
 
             # Only keep EZT rows with Transaction Number not in prior_ezt
             if not prior_ezt.empty and "Transaction Number" in prior_ezt.columns:
@@ -1556,6 +1633,11 @@ def runMatchContributions():
 
             # Combine prior and current data
             combined_arena = pd.concat([prior_arena, current_arena], ignore_index=True)
+            # Sort Arena data by Arena Batch #
+            if "Batch #" in combined_arena.columns:
+                combined_arena["Batch #"] = combined_arena["Batch #"].astype(str).str.strip()
+                combined_arena = combined_arena.sort_values(by="Batch #", ascending=True)
+
             combined_ezt = pd.concat([prior_ezt, current_ezt], ignore_index=True)
 
             # Generate master Excel file with all 3 sheets
@@ -1568,7 +1650,8 @@ def runMatchContributions():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
     else:
-        st.info("Upload Arena and EZT batches to generate the full report.")
+        # st.info("Upload Arena and EZT batches to generate the full report.")
+        st.info("You must upload both Arena and EasyTithe files (or upload one and combine it with a master file) to generate the report.")
 
 
 def runContributions():
