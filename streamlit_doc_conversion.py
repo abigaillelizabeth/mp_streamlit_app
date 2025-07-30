@@ -16,7 +16,7 @@ import tempfile
 from datetime import *
 import toml
 import zipfile
-
+import openpyxl
 
 # ARENA METHODS  
 # Function to reformat the input data
@@ -1275,6 +1275,38 @@ def reorder_merged_columns(merged, arena_df, ezt_df):
 #     output.seek(0)
 #     return output
 
+def matched_from_master(master_file):
+    try:
+        wb = openpyxl.load_workbook(master_file, data_only=True)
+        ws = wb["Matched Contributions"]
+        data = ws.values
+
+        # Skip first 8 rows (summary counts, title rows)
+        for _ in range(8):
+            next(data)
+
+        # Extract header
+        columns = next(data)
+        rows = list(data)
+
+        return pd.DataFrame(rows, columns=columns)
+    except Exception as e:
+        st.warning(f"Could not extract prior matched transactions: {e}")
+        return pd.DataFrame()
+
+# def extract_matched_rows_with_formatting(master_file):
+#     try:
+#         wb = openpyxl.load_workbook(master_file)
+#         ws = wb["Matched Contributions"]
+
+#         # Skip first 8 rows (summary and headers)
+#         matched_rows = []
+#         for row in ws.iter_rows(min_row=9):  # Row 9 is where matched data begins
+#             matched_rows.append([cell for cell in row])  # Keep full cell objects
+#         return matched_rows
+#     except Exception as e:
+#         st.warning(f"Could not extract matched rows with formatting: {e}")
+#         return []
 
 
 def categorized_matches(match_by_id_df, unmatched_df, ezt_df):
@@ -1301,7 +1333,6 @@ def categorized_matches(match_by_id_df, unmatched_df, ezt_df):
         batch_id for batch_id in matched_counts.index
         if matched_counts[batch_id] == ezt_full_counts.get(batch_id, -1)
     ]
-
     # Write summary
     summary_rows = [
         ["Fully Matched EZT Batches", len(fully_matched_batches)],
@@ -1359,9 +1390,8 @@ def categorized_matches(match_by_id_df, unmatched_df, ezt_df):
     output.seek(0)
     return output
 
-
 # CONTRIBUTIONS - EXPORTING
-def export_matched_excel(arena_df, ezt_df):
+def export_matched_excel(arena_df, ezt_df, prior_matched=pd.DataFrame()):
     # Make copies to avoid changing original data
     arena_df = arena_df.copy()
     ezt_df = ezt_df.copy()
@@ -1376,15 +1406,9 @@ def export_matched_excel(arena_df, ezt_df):
         "Batch ID": "EZT Batch ID"
     })
     
-    #print("ARENA COLUMNS:", arena_df.columns.tolist())
-    #print("EZT COLUMNS:", ezt_df.columns.tolist())
-
-
-    # Merge on transaction ID with indicator
     # Safe normalization: cast to int first to strip decimal, then to str
     arena_df["Arena Transaction ID"] = arena_df["Arena Transaction ID"].astype(float).astype(int).astype(str).str.strip()
     ezt_df["EZT Transaction ID"] = ezt_df["EZT Transaction ID"].astype(float).astype(int).astype(str).str.strip()
-
 
     merged = pd.merge(
         arena_df,
@@ -1410,11 +1434,36 @@ def export_matched_excel(arena_df, ezt_df):
     # Drop the merge indicator before output
     for df in [match_by_transaction_id, arena_only, ezt_only]:
         df.drop(columns=["_merge"], inplace=True)
+
     # Apply consistent column order
     ordered_cols = reorder_merged_columns(merged, arena_df, ezt_df) + ["Match Type"]
     match_by_transaction_id = match_by_transaction_id[ordered_cols]
     arena_only = arena_only[ordered_cols]
     ezt_only = ezt_only[ordered_cols]
+
+    # ⬅️ If a prior master was uploaded, preserve already-matched transactions
+    if not prior_matched.empty:
+        # Normalize types to ensure clean comparison
+        prior_matched["Arena Transaction ID"] = prior_matched["Arena Transaction ID"].astype(str).str.strip()
+        prior_matched["EZT Transaction ID"] = prior_matched["EZT Transaction ID"].astype(str).str.strip()
+        match_by_transaction_id["Arena Transaction ID"] = match_by_transaction_id["Arena Transaction ID"].astype(str).str.strip()
+        match_by_transaction_id["EZT Transaction ID"] = match_by_transaction_id["EZT Transaction ID"].astype(str).str.strip()
+
+        # Build keys to find overlap
+        prior_keys = prior_matched[["Arena Transaction ID", "EZT Transaction ID"]].dropna()
+        current_keys = match_by_transaction_id[["Arena Transaction ID", "EZT Transaction ID"]]
+
+        # Identify which matches are new (i.e., not already present in prior master)
+        combined = match_by_transaction_id.merge(
+            prior_keys,
+            on=["Arena Transaction ID", "EZT Transaction ID"],
+            how="left",
+            indicator=True
+        )
+        new_matches = combined[combined["_merge"] == "left_only"].drop(columns=["_merge"])
+
+        # Add back preserved matches from the master
+        match_by_transaction_id = pd.concat([prior_matched, new_matches], ignore_index=True)
 
     # Build categorized Excel with labeled sections
     return categorized_matches(
@@ -1423,8 +1472,6 @@ def export_matched_excel(arena_df, ezt_df):
         ezt_df = ezt_df  # <-- NEW
     )
 
-
-    # return match_by_transaction_id, pd.DataFrame(), pd.concat([arena_only, ezt_only], ignore_index=True)
 
 def export_combined_excel(arena_df, ezt_df):
 
@@ -1483,7 +1530,9 @@ def export_contributions_master(arena_df, ezt_df):
     # Generate formatted Excel files in memory
     arena_output = arena_excel(arena_df)
     ezt_output = ezt_excel(ezt_df)
-    matched_output = export_matched_excel(arena_df, ezt_df)
+    #matched_output = export_matched_excel(arena_df, ezt_df)
+    prior_matched = matched_from_master(st.session_state.get("master_file")) if "master_file" in st.session_state else pd.DataFrame()
+    matched_output = export_matched_excel(arena_df, ezt_df, prior_matched)
 
     # Load formatted workbooks
     arena_output.seek(0)
@@ -1514,57 +1563,6 @@ def export_contributions_master(arena_df, ezt_df):
     output.seek(0)
 
     return output
-
-
-# def runMatchContributions():
-#     arena_ready = 'arena_data' in st.session_state
-#     ezt_ready = 'ezt_data' in st.session_state
-
-#     if arena_ready and ezt_ready:
-#         st.header("Contribution Report Download Options")
-#         st.write("Click the button below to generate all contribution reports.")
-
-#         if st.button("Generate Reports"):
-#             # Generate all outputs at once
-#             merged_excel_sheets = export_combined_excel(
-#                 st.session_state.arena_data,
-#                 st.session_state.ezt_data
-#             )
-
-#             matched_excel_sheet = export_matched_excel(
-#                 st.session_state.arena_data,
-#                 st.session_state.ezt_data
-#             )
-
-#             master_excel = export_full_report_with_formatting(
-#                 st.session_state.arena_data,
-#                 st.session_state.ezt_data
-#             )
-
-#             # Show all download buttons
-#             # st.download_button(
-#             #     label="Combined Arena & EZT Batches (.xlsx)",
-#             #     data=merged_excel_sheets,
-#             #     file_name="merged_contributions.xlsx",
-#             #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-#             # )
-
-#             # st.download_button(
-#             #     label="Matched Sheet Only (.xlsx)",
-#             #     data=matched_excel_sheet,
-#             #     file_name="matched_contributions.xlsx",
-#             #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-#             # )
-
-#             st.download_button(
-#                 label="Master Workbook",
-#                 data=master_excel,
-#                 file_name="master_contributions_export.xlsx",
-#                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-#             )
-
-#     else:
-#         st.info("Upload both Arena and EZT files to access combined export options.")
 
 def runMatchContributions():
     # arena_ready = 'arena_data' in st.session_state
@@ -1610,8 +1608,10 @@ def runMatchContributions():
 
 
             # Remove duplicates before combining
-            current_arena = st.session_state.arena_data
-            current_ezt = st.session_state.ezt_data
+            #current_arena = st.session_state.arena_data
+            current_arena = st.session_state.get("arena_data", pd.DataFrame())
+            #current_ezt = st.session_state.ezt_data
+            current_ezt = st.session_state.get("ezt_data", pd.DataFrame())
             
             # Normalize column names and transaction values
             prior_arena.columns = [col.strip() for col in prior_arena.columns]
