@@ -17,6 +17,7 @@ from datetime import *
 import toml
 import zipfile
 import openpyxl
+import datetime
 
 # ARENA METHODS  
 # Function to reformat the input data
@@ -835,63 +836,7 @@ def runMasterAddressMerger():
 
 # CONTRIBUTIONS - ARENA
 
-
-# def arena_master_included(uploaded_arena_files):
-#     #print("running arena_master_included")
-#     arena_data_list = []  # List to store the processed data from each file
-
-#     # Sort the files by name (to check length and determine if master or batch file)
-#     uploaded_arena_files.sort(key=lambda x: len(x.name))  # Sort by the file name length
-
-#     master_file_found = False
-#     combined_arena_data = pd.DataxFrame()  # Initialize the combined dataframe
-
-#     # Process each uploaded Arena file
-#     for uploaded_arena_file in uploaded_arena_files:
-#         # Read in the EZT data based on type
-#         filename = uploaded_arena_file.name.lower()
-
-#         if filename.endswith('.csv'):
-#             raw_contrib_arena = pd.read_csv(uploaded_arena_file)
-#         elif filename.endswith('.xlsx'):
-#             raw_contrib_arena = pd.read_excel(uploaded_arena_file, sheet_name=0, header=None)
-#         else:
-#             st.warning(f"Unsupported file type: {uploaded_arena_file.name}")
-#             continue
-
-#         # Check if the file name has more than 5 characters (indicating it's a master file)
-#         if len(uploaded_arena_file.name.split('.')[0]) > 5:
-#             # Master file logic
-#             print(f"Master file found: {uploaded_arena_file.name}")
-#             master_file_found = True
-
-#             # Use only the first row as the header
-#             raw_contrib_arena.columns = raw_contrib_arena.iloc[0]
-#             raw_contrib_arena = raw_contrib_arena.drop(index=0)
-#             raw_contrib_arena.reset_index(drop=True, inplace=True)
-
-#             combined_arena_data = raw_contrib_arena  # Initialize combined_arena_data with the raw master file
-
-#         else:
-#              # Extract the batch number (first 5 digits of the file name)
-#             batch_number = uploaded_arena_file.name.split('.')[0]
-
-#             # Batch file logic (files with 5-digit names)
-#             print(f"Processing batch file: {uploaded_arena_file.name}")
-#             processed_batch_file = arena_all_new([uploaded_arena_file])  # Process batch files and return a DataFrame
-#             processed_batch_file["Batch #"] = batch_number  # Add the "Batch #" column to the batch file
-
-#             # Append to the list for combining later
-#             arena_data_list.append(processed_batch_file)
-    
-#     # If there are batch files, combine them with the master file
-#     if arena_data_list:
-#         combined_arena_data = pd.concat([combined_arena_data] + arena_data_list, ignore_index=True)
-
-#     return combined_arena_data
-
 def arena_all_new(uploaded_arena_files):
-    #print("running arena_all_new")
     arena_data_list = []  # List to store the processed data from each file
 
     for idx, uploaded_arena_file in enumerate(uploaded_arena_files):
@@ -927,7 +872,6 @@ def arena_all_new(uploaded_arena_files):
     return combined_arena_data
 
 def arena_col_names(raw_contrib_arena):
-    #print("running arena_col_names")
     # Manually combine the first two rows into one header row, but only if both rows have values
     new_columns = [
         f"{col1} {col2}" if pd.notna(col1) and pd.notna(col2) else col1 if pd.notna(col1) else col2
@@ -970,9 +914,6 @@ def arena_merge(uploaded_arena_files):
     return combined_arena_data
 
 def arena_excel(combined_arena_data):
-    import io, datetime
-    from openpyxl import Workbook
-
     combined_arena_data["Contribution Date"] = pd.to_datetime(combined_arena_data["Contribution Date"], errors="coerce")
     # print("testing arena formatting")
 
@@ -1078,9 +1019,6 @@ def ezt_merge(uploaded_ezt_data):
     return combined_ezt_data
 
 def ezt_excel(combined_ezt_data):
-    import io, datetime
-    from openpyxl import Workbook
-
     wb = Workbook()
     ws = wb.active
     ws.title = "EZT Details"
@@ -1157,33 +1095,6 @@ def ezt_from_master(master_file):
         return pd.DataFrame()
 
 # CONTRIBUTIONS - IMPORTING
-
-# def runAllImports(uploaded_arena_files, uploaded_ezt_files, uploaded_master_file):
-#     # Handle Arena files
-#     if uploaded_arena_files:
-#         combined_arena_data = arena_merge(uploaded_arena_files)
-#         st.session_state.arena_data = combined_arena_data
-#         st.success("Arena batches processed successfully.")
-#     else:
-#         st.error("No Arena files added")
-
-#     # Handle EZT files
-#     if uploaded_ezt_files:
-#         combined_ezt_data = ezt_merge(uploaded_ezt_files)
-#         st.session_state.ezt_data = combined_ezt_data
-#         st.success("EasyTithe batches processed successfully.")
-#     else:
-#         st.error("No EZT files added")
-
-#     # Handle master workbook (we'll finish this in Step 2)
-#     if uploaded_master_file:
-#         st.session_state.master_file = uploaded_master_file
-#         st.success("Master workbook detected and ready.")
-#     else:
-#         st.session_state.master_file = None
-
-
-
 def runAllImports(uploaded_arena_files, uploaded_ezt_files, uploaded_master_file):
     has_new_arena = False
     has_new_ezt = False
@@ -1237,45 +1148,10 @@ def reorder_merged_columns(merged, arena_df, ezt_df):
     final_order = arena_id_cols + arena_other_cols + ezt_id_cols + ezt_other_cols
     return [col for col in final_order if col in merged.columns]
 
-
-# def categorized_matches(match_by_id_df, unmatched_df):
-#     wb = Workbook()
-#     ws = wb.active
-#     ws.title = "Matched Contributions"
-
-#     def write_section(header, df, start_row):
-#         num_columns = max(len(df.columns), 1)
-
-#         # Write title row
-#         for col_idx in range(1, num_columns + 1):
-#             cell = ws.cell(row=start_row, column=col_idx)
-#             if col_idx == 1:
-#                 cell.value = header
-#             else:
-#                 cell.value = None
-
-#         # Write DataFrame contents
-#         header_row = start_row + 1
-#         for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=header_row):
-#             for c_idx, value in enumerate(row, start=1):
-#                 cell = ws.cell(row=r_idx, column=c_idx, value=value)
-#                 if r_idx == header_row:
-#                     cell.font = Font(bold=True)
-
-#         return r_idx + 2
-
-#     row_cursor = 1
-#     row_cursor = write_section("Matched by Transaction ID", match_by_id_df, row_cursor)
-
-#     row_cursor = write_section("Unmatched Transactions", unmatched_df, row_cursor)
-
-#     # Save workbook to memory
-#     output = io.BytesIO()
-#     wb.save(output)
-#     output.seek(0)
-#     return output
-
 def matched_from_master(master_file):
+    if master_file is None:
+        return pd.DataFrame()
+
     try:
         wb = openpyxl.load_workbook(master_file, data_only=True)
         ws = wb["Matched Contributions"]
@@ -1293,21 +1169,6 @@ def matched_from_master(master_file):
     except Exception as e:
         st.warning(f"Could not extract prior matched transactions: {e}")
         return pd.DataFrame()
-
-# def extract_matched_rows_with_formatting(master_file):
-#     try:
-#         wb = openpyxl.load_workbook(master_file)
-#         ws = wb["Matched Contributions"]
-
-#         # Skip first 8 rows (summary and headers)
-#         matched_rows = []
-#         for row in ws.iter_rows(min_row=9):  # Row 9 is where matched data begins
-#             matched_rows.append([cell for cell in row])  # Keep full cell objects
-#         return matched_rows
-#     except Exception as e:
-#         st.warning(f"Could not extract matched rows with formatting: {e}")
-#         return []
-
 
 def categorized_matches(match_by_id_df, unmatched_df, ezt_df):
     wb = Workbook()
@@ -1380,6 +1241,11 @@ def categorized_matches(match_by_id_df, unmatched_df, ezt_df):
     # Sheet 2: Unmatched Transactions
     # ------------------------
     ws_unmatched = wb.create_sheet(title="Unmatched Transactions")
+
+    # Sort if possible
+    if "Arena Batch #" in unmatched_df.columns:
+        unmatched_df = unmatched_df.sort_values(by="Arena Batch #", na_position="last")
+
     ws_unmatched.append(unmatched_df.columns.tolist())
     for row in unmatched_df.itertuples(index=False):
         ws_unmatched.append(list(row))
@@ -1471,7 +1337,6 @@ def export_matched_excel(arena_df, ezt_df, prior_matched=pd.DataFrame()):
         unmatched_df=pd.concat([arena_only, ezt_only], ignore_index=True),
         ezt_df = ezt_df  # <-- NEW
     )
-
 
 def export_combined_excel(arena_df, ezt_df):
 
@@ -1626,7 +1491,12 @@ def runMatchContributions():
 
 
             # Only keep EZT rows with Transaction Number not in prior_ezt
-            if not prior_ezt.empty and "Transaction Number" in prior_ezt.columns:
+            if (
+                not prior_ezt.empty and 
+                "Transaction Number" in prior_ezt.columns and
+                not current_ezt.empty and 
+                "Transaction Number" in current_ezt.columns
+            ):
                 current_ezt = current_ezt[
                     ~current_ezt["Transaction Number"].isin(prior_ezt["Transaction Number"])
                 ]
@@ -1652,7 +1522,6 @@ def runMatchContributions():
     else:
         # st.info("Upload Arena and EZT batches to generate the full report.")
         st.info("You must upload both Arena and EasyTithe files (or upload one and combine it with a master file) to generate the report.")
-
 
 def runContributions():
     st.header("Contribution Reports Processing")
