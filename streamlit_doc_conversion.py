@@ -1573,7 +1573,7 @@ def call_methods():
             st.rerun()
         
         st.markdown("---")
-        st.header("Tools Menu")
+        st.header("Tool Menu")
 
         st.markdown("### 📂 Contributions")
         if st.button("🧾 Contribution Reports"):
@@ -1587,13 +1587,13 @@ def call_methods():
         if st.button("📍 Donor Address Merger"):
             st.session_state.selected_function = "Master Test Report"
 
-        st.markdown("### 🧮 Journey Entry Creation")
+        st.markdown("### 🧮 Journal Entry Creation")
         if st.button("💼 Payroll Workbook"):
             st.session_state.selected_function = "Payroll Workbook"
         if st.button("💊 Cigna Workbook"):
             st.session_state.selected_function = "Cigna Workbook"
-        if st.button("⏳Assure Download"):
-            st.session_state.selected_function = "Assure Download"
+        if st.button("⏳ Assure Workbook"):
+            st.session_state.selected_function = "Assure Workbook"
 
     # Show the selected tool
     selected_function = st.session_state.get("selected_function")
@@ -1610,7 +1610,7 @@ def call_methods():
         runPayroll()
     elif selected_function == "Cigna Workbook":
         runCigna()
-    elif selected_function == "Assure Download":
+    elif selected_function == "Assure Workbook":
         runAssure()
 
 # Set streamlit logic 
