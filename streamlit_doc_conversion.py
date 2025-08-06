@@ -1095,7 +1095,8 @@ def ezt_from_master(master_file):
         return pd.DataFrame()
 
 # CONTRIBUTIONS - IMPORTING
-def runAllImports(uploaded_arena_files, uploaded_ezt_files, uploaded_master_file):
+# def runAllImports(uploaded_arena_files, uploaded_ezt_files, uploaded_master_file):
+def runAllImports(uploaded_arena_files, uploaded_ezt_files):
     has_new_arena = False
     has_new_ezt = False
 
@@ -1114,21 +1115,21 @@ def runAllImports(uploaded_arena_files, uploaded_ezt_files, uploaded_master_file
         has_new_ezt = True
 
     # Handle master file (optional, only useful if combined with new batches)
-    if uploaded_master_file:
-        st.session_state.master_file = uploaded_master_file
-        if not (has_new_arena or has_new_ezt):
-            st.warning("Master file provided, but no new Arena or EZT batches were uploaded. No changes will be made.")
-        else:
-            st.success("Master workbook loaded successfully.")
-    else:
-        st.session_state.master_file = None
+    # if uploaded_master_file:
+    #     st.session_state.master_file = uploaded_master_file
+    #     if not (has_new_arena or has_new_ezt):
+    #         st.warning("Master file provided, but no new Arena or EZT batches were uploaded. No changes will be made.")
+    #     else:
+    #         st.success("Master workbook loaded successfully.")
+    # else:
+    #     st.session_state.master_file = None
 
-    # Give user clarity on what happened
-    if not uploaded_arena_files and not uploaded_master_file:
-        st.info("No Arena files uploaded.")
+    # # Give user clarity on what happened
+    # if not uploaded_arena_files and not uploaded_master_file:
+    #     st.error("No Arena files uploaded.")
 
-    if not uploaded_ezt_files and not uploaded_master_file:
-        st.info("No EasyTithe files uploaded.")
+    # if not uploaded_ezt_files and not uploaded_master_file:
+    #     st.error("No EasyTithe files uploaded.")
 
 
 # CONTRIBUTIONS - MATCHING BY ID
@@ -1231,8 +1232,27 @@ def categorized_matches(match_by_id_df, unmatched_df, ezt_df):
         ws_matched.append(subset.columns.tolist())
 
         # Write data rows
-        for row in subset.itertuples(index=False):
-            ws_matched.append(list(row))
+        # for row in subset.itertuples(index=False):
+        #     ws_matched.append(list(row))
+        
+        # Write data rows
+        for _, row in subset.iterrows():
+            ws_matched.append([cell if not isinstance(cell, pd.Timestamp) else cell.to_pydatetime() for cell in row])
+
+
+        # Apply formatting to date columns for this block
+        headers = subset.columns.tolist()
+        start_row = ws_matched.max_row - len(subset) + 1
+
+        for row in ws_matched.iter_rows(min_row=start_row, max_row=ws_matched.max_row):
+            for i, header in enumerate(headers):
+                cell = row[i]
+                header_lower = header.lower()
+                if "date" in header_lower:
+                    if isinstance(cell.value, (datetime.datetime, pd.Timestamp)):
+                        cell.number_format = "MM/DD/YYYY"
+                    else:
+                        cell.number_format = "mm/dd/yy"
 
         # Blank line after group
         ws_matched.append([])
@@ -1255,6 +1275,7 @@ def categorized_matches(match_by_id_df, unmatched_df, ezt_df):
     wb.save(output)
     output.seek(0)
     return output
+
 
 # CONTRIBUTIONS - EXPORTING
 def export_matched_excel(arena_df, ezt_df, prior_matched=pd.DataFrame()):
@@ -1457,7 +1478,7 @@ def runMatchContributions():
 
     # ✅ Enforce: must have both Arena and EZT (either from new upload or master)
     if arena_ready and ezt_ready:
-        st.header("Contribution Report Download Options")
+        st.header("Matched Contribution Report Download")
         st.write("Click the button below to generate the full contribution report.")
 
         if st.button("Generate Reports"):
@@ -1514,23 +1535,24 @@ def runMatchContributions():
             master_excel = export_contributions_master(combined_arena, combined_ezt)
 
             st.download_button(
-                label="Download Master Workbook (.xlsx)",
+                label="Master Workbook",
                 data=master_excel,
                 file_name="master_contributions_export.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
     else:
         # st.info("Upload Arena and EZT batches to generate the full report.")
-        st.info("You must upload both Arena and EasyTithe files (or upload one and combine it with a master file) to generate the report.")
+        # st.info("You must upload both Arena and EasyTithe files (or upload one and combine it with a master file) to generate the report.")
+        st.info("You must upload both Arena and EasyTithe files to generate the report.")
 
 def runContributions():
     st.header("Contribution Reports Processing")
     # Upload Prior Master Workbook (Optional)
-    uploaded_master_file = st.file_uploader(
-        "Upload Prior Master Workbook (Optional)",
-        type=["xlsx"],
-        key="existing_master_upload"
-    )
+    # uploaded_master_file = st.file_uploader(
+    #     "Upload Prior Master Workbook (Optional)",
+    #     type=["xlsx"],
+    #     key="existing_master_upload"
+    # )
     # Upload Arena Batch Files
     uploaded_arena_files = st.file_uploader(
         "Upload Arena Batch Files", 
@@ -1547,7 +1569,8 @@ def runContributions():
     )
     # Unified Import Button
     if st.button("Import All Files"):
-        runAllImports(uploaded_arena_files, uploaded_ezt_files, uploaded_master_file)
+        # runAllImports(uploaded_arena_files, uploaded_ezt_files, uploaded_master_file)
+        runAllImports(uploaded_arena_files, uploaded_ezt_files)
 
     # Continue to matching and export
     runMatchContributions()
